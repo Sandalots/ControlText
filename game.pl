@@ -144,17 +144,7 @@ show_help :-
     writeln("Quit:     quit"),
     writeln("================").
 
-
-/* --- Movement --- */
-move(jesse, Dir) :-
-    location(jesse, street),
-    Dir \= enter,
-    funny_outside_message,
-    !.
-
-:- dynamic outside_attempts/1.
-outside_attempts(0).
-
+/* Funny Text */
 funny_outside_message :-
     outside_attempts(N),
     N1 is N + 1,
@@ -181,6 +171,15 @@ outside_message(4) :-
 outside_message(_) :-
     writeln("You cannot escape the Oldest House. Just go inside.").
 
+:- dynamic outside_attempts/1.
+outside_attempts(0).
+
+/* --- Movement --- */
+move(jesse, Dir) :-
+    location(jesse, street),
+    Dir \= enter,
+    funny_outside_message,
+    !.
 
 move(Actor, Dir) :-
     location(Actor, Room),
@@ -277,3 +276,4 @@ enemy_turn :-
     retract(health(jesse, JHP)),
     assert(health(jesse, NewJHP)),
     format("You now have ~w HP.~n", [NewJHP]).
+
