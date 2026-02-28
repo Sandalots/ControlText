@@ -278,6 +278,7 @@ object(health_kit, security_post).
 object(health_kit, records_room).
 object(charge_upgrade, atrium).
 object(cat_statue, upper_hall).
+object(flower, street).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -550,6 +551,26 @@ place_item(cat_statue) :-
 
 place_item(cat_statue) :-
     normal_text("You don't have the cat statue.").
+
+place_item(flower) :-
+    location(jesse, west_road),
+    has(jesse, flower),
+    !,
+    retract(has(jesse, flower)),
+    assertz(object(health_kit, west_road)),
+    highlight_text("You lay the wildflower against the old brick wall."),
+    normal_text("It looks right here. Like it belonged all along."),
+    normal_text("Something shifts in the air — a faint warmth, almost grateful."),
+    tip_text("A health kit has appeared! Use 'take health_kit' to pick it up.").
+
+place_item(flower) :-
+    \+ location(jesse, west_road),
+    has(jesse, flower),
+    !,
+    normal_text("You hold the flower carefully. It feels like it belongs somewhere quieter than this.").
+
+place_item(flower) :-
+    normal_text("You don't have a flower.").
 
 place_item(Item) :-
     format(atom(Msg), "You can't place the ~w here.", [Item]),
@@ -1503,6 +1524,7 @@ restart_game :-
     assertz(object(health_kit, security_post)),
     assertz(object(health_kit, records_room)),
     assertz(object(cat_statue, upper_hall)),
+    assertz(object(flower, street)),
     % restart game
     normal_text("Game restarted!"),
     init_game_output.   % web-safe: no game_loop call
