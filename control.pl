@@ -68,6 +68,12 @@ connected(west_road, street, east).         % was south
 connected(lobby, janitor_hall, east).
 connected(janitor_hall, lobby, west).
 
+connected(janitor_hall, atrium, east) :-
+    has(jesse, service_weapon).
+
+connected(atrium, janitor_hall, west) :-
+    has(jesse, service_weapon).
+
 connected(lobby, upper_hall, north) :-
     has(jesse, keys).        % locked until you get keys
 
@@ -110,6 +116,11 @@ description(lobby,
 
 description(janitor_hall,
 "A narrow hallway. Ahti leans on his mop, watching you.").
+
+description(atrium,
+"A vast circular chamber with high vaulted ceilings. Strange geometric patterns \
+cover the floor, seeming to shift and breathe with an otherworldly rhythm. \
+The air feels heavy with presence.").
 
 description(upper_hall,
 "A long corridor. A Hiss‑infected guard twitches violently.").
@@ -431,6 +442,15 @@ move(jesse, Dir) :-
     \+ connected(street, _, Dir),
     funny_outside_message,
     !.
+
+move(Actor, Dir) :-
+    location(Actor, Room),
+    Room = janitor_hall,
+    Dir = east,
+    \+ has(jesse, service_weapon),
+    !,
+    speak(ahti, "'The Service Weapon... you will need it. The deeper places demand it. \
+Without it, the shadows will consume you. Go. Retrieve what was left behind.'").
 
 move(Actor, Dir) :-
     location(Actor, Room),
