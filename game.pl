@@ -33,6 +33,7 @@ map_text(Text)       :- color_ln(cyan,   Text).
 location(jesse, street).
 location(ahti, janitor_hall).
 location(hiss_guard, upper_hall).
+location(vendor, food_vendor).      % new NPC
 
 health(jesse, 100).
 health(hiss_guard, 30).
@@ -42,7 +43,13 @@ has(jesse, none).
 /* --- Map --- */
 
 connected(street, lobby, enter).
-connected(lobby, street, exit).   % optional, but fun
+connected(lobby, street, exit).
+
+connected(street, food_vendor, east).        % hot‑dog vendor
+connected(food_vendor, street, west).
+
+connected(street, north_road, north).        % new northward alley
+connected(north_road, street, south).
 
 connected(lobby, janitor_hall, east).
 connected(janitor_hall, lobby, west).
@@ -62,6 +69,12 @@ description(street,
 "You stand outside the Federal Bureau of Control. The building is tall, \
 featureless, and humming faintly. The front doors wait silently.").
 
+description(food_vendor,
+"A greasy hot‑dog cart stands here. A man in a stained apron shouts, \
+'Best dogs in the Oldest House!'").
+
+description(north_road,
+"A quiet side street veering north. The air smells like dust and old paper.").
 
 description(lobby,
 "A vast lobby with humming lights. A janitor's cart sits alone.").
@@ -129,6 +142,11 @@ talk_to(ahti) :-
     ;   writeln("'Lost? Keys are in the lobby,' Ahti says, pointing back.")
     ), !.
 
+talk_to(vendor) :-
+    location(jesse, food_vendor),
+    writeln("'Get your hyperreal hot‑dogs!  Two for one if you say the word \"bureau\"!'"),
+    writeln("He laughs maniacally and jots something down on a napkin."), !.
+
 talk_to(_) :-
     writeln("There's no one to talk to.").
 
@@ -174,11 +192,11 @@ start :-
     normal_text("The building looms above you, humming with a strange, low resonance."),
     normal_text("Something pulls you toward the entrance."),
     writeln(""),
-    highlight_text("Tip: try 'enter' to go inside."),
+    highlight_text("Tip: try 'enter' to go inside and continue towards the story or alternatively go east and visit the food vendor!"),
     writeln(""),
     % now print the description for the starting room
     description(Room, Desc),
-    normal_text(Desc),
+    normal_text(Desc),          % description also coloured
     list_notes(Room),            % <--- mention notes at start
     list_occupants(Room),
     list_items(Room),
@@ -293,6 +311,7 @@ outside_attempts(0).
 move(jesse, Dir) :-
     location(jesse, street),
     Dir \= enter,
+    \+ connected(street, _, Dir),      % only block if no exit that way
     funny_outside_message,
     !.
 
@@ -420,7 +439,7 @@ describe_here :-
     location(jesse, Room),
     show_map(Room),
     description(Room, Desc),
-    writeln(Desc),
+    normal_text(Desc),           % colour the description
     list_notes(Room),            % <--- notify about notes
     list_occupants(Room),
     list_items(Room).
@@ -429,7 +448,11 @@ list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
     ( Others = [] -> true
     ; format(string(S),"You see: ~w",[Others]),
-      highlight_text(S)
+      highlight_text(S),
+      ( member(vendor, Others)
+      -> highlight_text("Perhaps you could 'talk vendor' while you're here.")
+      ; true
+      )
     ).
 
 list_items(Room) :-
