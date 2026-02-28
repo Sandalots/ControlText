@@ -26,6 +26,7 @@
 :- discontiguous health/2.
 :- discontiguous combat/2.
 :- discontiguous visible_npc/1.
+:- discontiguous inner_thought/3.
 :- use_module(library(pcre)).        % for re_replace/4
 :- use_module(library(ansi_term)).   % for colour output
 
@@ -91,6 +92,9 @@ speak(_, Text)      :- normal_text(Text).
 
 note_text(Text) :-
     ansi_format([fg(red), italic], '~w~n', [Text]).
+
+thought_text(Text) :-
+    ansi_format([fg(white), italic], '~w~n', [Text]).
 
 :- endif.
 
@@ -433,6 +437,111 @@ read_notes(Name) :-
     ;  note_text("No such note here.")
     ).
 
+/* --- Inner Thoughts --- */
+% inner_thought(Room, Id, Text).
+
+inner_thought(street, brother,
+    "Dylan. You haven't seen him in years — not since the night everything \
+fell apart. He disappeared without a word, and you told yourself you didn't care. \
+You told yourself that for a long time. \
+Then the dreams started. His voice. This building. \
+Something in here took him, or called him, or changed him. \
+You don't know which is worse. \
+You just know you're not leaving without him.").
+
+inner_thought(street, here,
+    "The Federal Bureau of Control. You used to think it was a myth — \
+a government agency that didn't officially exist, dealing with things \
+that officially couldn't happen. \
+Now you're standing in front of it. \
+It's taller than it should be. The geometry is wrong in ways you can't name. \
+And somehow, it feels like it already knows you're here.").
+
+inner_thought(lobby, weapon,
+    "You need the Service Weapon. You've heard about it — \
+an Object of Power, a gun that chooses its Director. \
+The last Director is dead. \
+Which means it's waiting for someone new. \
+Maybe that's you. \
+You're not sure if that's terrifying or exactly what you came here for.").
+
+inner_thought(lobby, brother,
+    "He came here. You're sure of it now. The feeling gets stronger the deeper \
+you go — like the building is confirming it, room by room. \
+He always did get drawn to the wrong things.").
+
+inner_thought(directors_office, director,
+    "He chose this. Or the House chose it for him. \
+You're not sure there's a difference anymore. \
+The weapon is still here. Still warm. \
+Whatever he faced at the end, it wasn't nothing.").
+
+inner_thought(atrium, patterns,
+    "The floor is doing something. Moving, almost — or just on the edge of moving. \
+You've seen geometry like this before. In the dreams. \
+There's something missing here. Something that should be here and isn't. \
+The room feels incomplete. Wrong. \
+Like a sentence with the last word cut out.").
+
+inner_thought(secret_chamber, dylan,
+    "There he is. Dylan. \
+He looks smaller than you remember. Older. \
+Whatever happened to him in here, he's still breathing. \
+That's enough. That has to be enough. \
+You just have to get him out.").
+
+list_thoughts(Room) :-
+    findall(Id, inner_thought(Room, Id, _), Thoughts),
+    ( Thoughts = [] -> true
+    ; atomic_list_concat(Thoughts, ', ', IdStr),
+      writeln(""),
+      highlight_text("Jesse's thoughts:"),
+      note_text(IdStr),
+      highlight_text("Use 'think <thought>' to reflect."),
+      writeln("")
+    ).
+
+think_thought(Name) :-
+    location(jesse, Room),
+    ( inner_thought(Room, Name, Text)
+    -> normal_text(Text)
+    ;  normal_text("You can't focus on that right now.")
+    ).
+
+/* --- Place Item --- */
+
+place_item(cat_statue) :-
+    location(jesse, atrium),
+    has(jesse, cat_statue),
+    \+ cat_statue_placed,
+    !,
+    retract(has(jesse, cat_statue)),
+    assertz(cat_statue_placed),
+    highlight_text("You set the cat statue on the stone plinth."),
+    normal_text("It fits perfectly. The geometric patterns on the floor pulse once, faintly, then settle."),
+    normal_text("A deep resonant tone fills the chamber. Two objects materialise from the light."),
+    assertz(object(health_upgrade, atrium)),
+    assertz(object(charge_upgrade, atrium)),
+    tip_text("New items have appeared! Use 'take health_upgrade' and 'take charge_upgrade'.").
+
+place_item(cat_statue) :-
+    cat_statue_placed,
+    !,
+    normal_text("The cat statue is already placed on the plinth.").
+
+place_item(cat_statue) :-
+    \+ location(jesse, atrium),
+    has(jesse, cat_statue),
+    !,
+    normal_text("That doesn't seem like the right place for it. The statue feels drawn elsewhere.").
+
+place_item(cat_statue) :-
+    normal_text("You don't have the cat statue.").
+
+place_item(Item) :-
+    format(atom(Msg), "You can't place the ~w here.", [Item]),
+    normal_text(Msg).
+
 /* --- Dialogue --- */
 
 talk_to(ahti) :-
@@ -642,10 +751,8 @@ living_enemy_here(Room) :-
 /* --- Game Start --- */
 
 start :-
-    % show the map immediately, before any flavour text
     location(jesse, Room),
     show_map(Room),
-
     normal_text("You arrive at the Federal Bureau of Control."),
     normal_text("The building looms above you, humming with a strange, low resonance."),
     normal_text("Something pulls you toward the entrance."),
@@ -657,6 +764,7 @@ start :-
     description(Room, Desc),
     normal_text(Desc),
     list_notes(Room),
+    list_thoughts(Room),
     list_occupants(Room),
     list_items(Room),
     game_loop.
@@ -735,6 +843,12 @@ parse([show, map], map).
 parse([unlock, Item], unlock(Item, none)).
 parse([unlock, Item, Code], unlock(Item, Code)).
 
+parse([think, Name], think(Name)).
+parse([think], think(here)).
+parse([place, Item], place(Item)).
+parse([put, Item, down], place(Item)).
+parse([put, down, Item], place(Item)).
+
 parse([restart], restart).
 parse([new, game], restart).
 parse([start, over], restart).
@@ -779,6 +893,8 @@ dispatch(charge) :- !, show_charge.
 dispatch(map) :- !, location(jesse, Room), show_map(Room).
 dispatch(quit) :- !, normal_text("You step back from the House.").
 dispatch(help) :- !, show_help.
+dispatch(think(Name)) :- !, think_thought(Name).
+dispatch(place(Item)) :- !, place_item(Item).
 
 dispatch(Cmd) :- format("I don't know how to handle: ~w~n", [Cmd]).
 
@@ -789,6 +905,7 @@ show_help :-
     normal_text("Look:      look | look at <thing>"),
     normal_text("Map:       map | show map"),
     normal_text("Read:      read | read <note_name>"),
+    normal_text("Think:     think <thought> (Jesse's inner thoughts)"),
     normal_text("Items:     take <item> | pick up <item>"),
     normal_text("Inventory: inventory | inv | i"),
     normal_text("Talk:      talk <npc>"),
@@ -1036,6 +1153,7 @@ describe_here :-
     ; true
     ),
     list_notes(Room),
+    list_thoughts(Room),
     list_occupants(Room),
     list_items(Room),
     announce_enemies(Room).
