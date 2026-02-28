@@ -105,7 +105,7 @@ game_loop :-
     maplist(atom_string, Tokens, Words),
     (   parse(Tokens, Command)
     ->  dispatch(Command),
-        ( Command = quit -> ! ; true )            % no failure for normal commands
+        ( Command = quit -> ! ; fail )            % <--- fail unless quitting
     ;   writeln("I don't understand."),
         fail
     ).
