@@ -102,6 +102,9 @@ object(service_weapon, directors_office).
 % note(Room, Id, Text).
 note(street, welcome,
     "A faded government memo: 'The Bureau never sleeps. Neither should you.'").
+note(street, construction,
+    "Public Notice: There will be noisy construction in this area for some time. \
+We thank you for your cooperation and patience during these improvements.").
 note(lobby, janitor,
     "Scrawled on the janitor's cart: 'Keys open doors; doors open minds.'").
 
@@ -120,9 +123,9 @@ read_notes(all) :-
     location(jesse, Room),
     findall(Id-Text, (note(Room,Id,Text), \+ read_note(Room,Id)), Pairs),
     ( Pairs = [] ->
-        writeln("There's nothing to read here.")
+        color_ln(red, "There's nothing to read here.")
     ; forall(member(Id-Text, Pairs),
-             ( writeln(Text),
+             ( color_ln(red, Text),
                assertz(read_note(Room,Id))
              ))
     ).
@@ -132,11 +135,11 @@ read_notes(Name) :-
     location(jesse, Room),
     ( note(Room, Name, Text) ->
         ( read_note(Room, Name) ->
-            writeln("You've already read that.")
-        ; writeln(Text),
+            color_ln(red, "You've already read that.")
+        ; color_ln(red, Text),
           assertz(read_note(Room, Name))
         )
-    ; writeln("No such note here.")
+    ; color_ln(red, "No such note here.")
     ).
 
 /* --- Dialogue --- */
@@ -199,7 +202,7 @@ start :-
     normal_text("The building looms above you, humming with a strange, low resonance."),
     normal_text("Something pulls you toward the entrance."),
     writeln(""),
-    highlight_text("Tip: try 'enter' to go inside and continue towards the story or alternatively go east and visit the food vendor!"),
+    highlight_text("Tip: try 'enter' to go inside and continue the story. You can also go east to visit the food vendor; if stuck there, go west back to the street entrance."),
     writeln(""),
     % now print the description for the starting room
     description(Room, Desc),
@@ -256,6 +259,9 @@ parse([read, Name], read(Name)).
 parse([read, note, Name],  read(Name)).
 parse([read, notes, Name], read(Name)).
 
+parse([map], map).
+parse([show, map], map).
+
 /* --- Command Dispatch --- */
 
 dispatch(look)                :- !, describe_here.
@@ -266,6 +272,7 @@ dispatch(talk(vendor))        :- !, talk_to(vendor).        % <--- new
 dispatch(take(Obj))           :- !, take_item(Obj).
 dispatch(attack(hiss_guard))  :- !, combat(jesse, hiss_guard).
 dispatch(read(Name))          :- !, read_notes(Name).
+dispatch(map)                 :- !, location(jesse, Room), show_map(Room).
 dispatch(quit)                :- !, writeln("You step back from the House.").
 dispatch(help)                :- !, show_help.
 
@@ -278,10 +285,12 @@ show_help :-
     writeln("=== COMMANDS ==="),
     writeln("Movement: go north | go south | go east | go west"),
     writeln("Look:     look | look at <thing>"),
+    writeln("Map:      map"),
     writeln("Items:    take <item>"),
     writeln("Talk:     talk <npc>"),
     writeln("Combat:   attack <enemy>"),
     writeln("Quit:     quit"),
+    writeln("Tip:      from food_vendor, go west to return to the street"),
     writeln("================").
 
 /* Funny Text */
@@ -447,6 +456,10 @@ describe_here :-
     show_map(Room),
     description(Room, Desc),
     normal_text(Desc),           % colour the description
+    ( Room = food_vendor
+    -> highlight_text("Tip: if you're stuck, go west back to the street entrance to the Oldest House.")
+    ; true
+    ),
     list_notes(Room),            % <--- notify about notes
     list_occupants(Room),
     list_items(Room).
