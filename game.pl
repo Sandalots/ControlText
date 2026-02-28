@@ -27,6 +27,7 @@ color_ln(Color, Text) :-
 normal_text(Text)    :- color_ln(green,  Text).
 highlight_text(Text) :- color_ln(yellow, Text).
 map_text(Text)       :- color_ln(cyan,   Text).
+tip_text(Text)       :- ansi_format([fg(magenta), bold], '~w~n', [Text]).  % new
 
 % speak(Character,Text) – choose a colour for the speaker and print in
 % italic.  previously used green/yellow; switch to red.
@@ -54,8 +55,8 @@ connected(lobby, street, exit).
 connected(street, food_vendor, east).        % hot‑dog vendor
 connected(food_vendor, street, west).
 
-connected(street, north_road, north).        % new northward alley
-connected(north_road, street, south).
+connected(street, west_road, west).         % was north
+connected(west_road, street, east).         % was south
 
 connected(lobby, janitor_hall, east).
 connected(janitor_hall, lobby, west).
@@ -79,8 +80,8 @@ description(food_vendor,
 "A greasy hot‑dog cart stands here. A man in a stained apron shouts, \
 'Best dogs in the Oldest House!'").
 
-description(north_road,
-"A quiet side street veering north. The air smells like dust and old paper.").
+description(west_road,
+"A quiet side street veering north. The air smells like dust and old paper. There's not much here.").
 
 description(lobby,
 "A vast lobby with humming lights. A janitor's cart sits alone.").
@@ -107,6 +108,18 @@ note(street, construction,
 We thank you for your cooperation and patience during these improvements.").
 note(lobby, janitor,
     "Scrawled on the janitor's cart: 'Keys open doors; doors open minds.'").
+note(lobby, security_bulletin,
+    "Security Bulletin: If you witness levitation, remain calm and alert a supervisor. \
+Do not engage unless properly trained.").
+note(lobby, visitor_policy,
+    "Visitor Policy: Unscheduled guests must wait in the lobby for escort. \
+Please keep your ID visible at all times.").
+note(lobby, missing_file,
+    "Typed memo with coffee rings: 'Case file 11-07 has gone missing again. \
+If found humming, do not open it.'").
+note(lobby, overtime_notice,
+    "Notice to Staff: Overtime this week is mandatory. \
+The House has been shifting after hours.").
 
 % when you enter or start, tell player if there are unread notes
 list_notes(Room) :-
@@ -208,9 +221,9 @@ start :-
     normal_text("The building looms above you, humming with a strange, low resonance."),
     normal_text("Something pulls you toward the entrance."),
     writeln(""),
-    highlight_text("Tip: try 'enter' to go inside and continue the story. You can also go east to visit the food vendor; if stuck there, go west back to the street entrance."),
+    tip_text("Tip: try 'enter' to go inside and continue the story. You can also go east to visit the food vendor; if stuck there, go west back to the street entrance."),
     writeln(""),
-    highlight_text("Tip: try 'help' to list all available commands."),
+    tip_text("Tip: try 'help' to list all available commands."),
     writeln(""),
     % now print the description for the starting room
     description(Room, Desc),
@@ -415,64 +428,75 @@ print_horizontal_connector(Center, WLabel, ELabel) :-
         format("~w-~n", [Esp])
     ; true ).
 
+% helper: formatted map line in map colour
+map_line(Fmt, Args) :-
+    format(string(S), Fmt, Args),
+    map_text(S).
+
+% helper: where the center label starts on the middle row
+center_start("", 0).
+center_start(WLabel, Start) :-
+    atom_length(WLabel, WL),
+    Start is WL + 5.   % " <-- "
+
 show_map(Current) :-
     map_label_center(Current, Center),
 
     ( neighbor(Current, north, N, NStatus) -> label_with_status(N, NStatus, NLabel) ; NLabel = "" ),
     ( neighbor(Current, south, S, SStatus) -> label_with_status(S, SStatus, SLabel) ; SLabel = "" ),
-    ( neighbor(Current, east,  E, EStatus)  -> label_with_status(E, EStatus, ELabel) ; ELabel = "" ),
-    ( neighbor(Current, west,  W, WStatus)  -> label_with_status(W, WStatus, WLabel) ; WLabel = "" ),
+    ( neighbor(Current, east,  E, EStatus) -> label_with_status(E, EStatus, ELabel) ; ELabel = "" ),
+    ( neighbor(Current, west,  W, WStatus) -> label_with_status(W, WStatus, WLabel) ; WLabel = "" ),
+
+    atom_length(Center, CL),
+    center_start(WLabel, CenterStart),
+    ArrowCol is CenterStart + CL // 2,
+    spaces(ArrowCol, ArrowPad),
 
     map_text(""),
     map_text("Relative Map:"),
 
-    % dynamic centring calculations
-    atom_length(Center, CL),
-    BasePad = 6,
-    _ArrowOff is BasePad + CL // 2,      % column where the vertical arrow should sit (unused)
-
-    % North
+    % North (aligned to the center-room position on middle row)
     ( NLabel \= "" ->
-        string_concat("   ", NLabel, S1),
-        map_text(S1),
-        map_text("      ^")
+        atom_length(NLabel, NL),
+        NCol is max(0, ArrowCol - NL // 2),
+        spaces(NCol, NPad),
+        map_line("~w~w", [NPad, NLabel]),
+        map_line("~w^", [ArrowPad]),
+        map_line("~w|", [ArrowPad])
     ; true ),
 
-    % horizontal connector for east/west neighbours
-    print_horizontal_connector(Center, WLabel, ELabel),
-
-    % Middle: west - center - east (with arrowheads)
+    % Middle
     ( WLabel \= "", ELabel \= "" ->
-        format(string(M), "~w <-- ~w --> ~w", [WLabel, Center, ELabel]),
-        map_text(M)
+        map_line("~w <-- ~w --> ~w", [WLabel, Center, ELabel])
     ; WLabel \= "" ->
-        format(string(M), "~w <-- ~w", [WLabel, Center]),
-        map_text(M)
+        map_line("~w <-- ~w", [WLabel, Center])
     ; ELabel \= "" ->
-        format(string(M), "      ~w --> ~w", [Center, ELabel]),
-        map_text(M)
-    ;  format(string(M), "      ~w", [Center]),
-       map_text(M)
+        map_line("~w --> ~w", [Center, ELabel])
+    ; map_line("~w", [Center])
     ),
 
-    % South
+    % South (aligned to the same center-room position)
     ( SLabel \= "" ->
-        map_text("      v"),
-        string_concat("      ", SLabel, S2),
-        map_text(S2)
+        atom_length(SLabel, SL),
+        SCol is max(0, ArrowCol - SL // 2),
+        spaces(SCol, SPad),
+        map_line("~w|", [ArrowPad]),
+        map_line("~wv", [ArrowPad]),
+        map_line("~w~w", [SPad, SLabel])
     ; true ),
 
     map_text("").
+
 describe_here :-
     location(jesse, Room),
     show_map(Room),
     description(Room, Desc),
-    normal_text(Desc),           % colour the description
+    normal_text(Desc),
     ( Room = food_vendor
-    -> highlight_text("Tip: if you're stuck, go west back to the street entrance to the Oldest House.")
+    -> tip_text("Tip: if you're stuck, go west back to the street entrance to the Oldest House.")
     ; true
     ),
-    list_notes(Room),            % <--- notify about notes
+    list_notes(Room),
     list_occupants(Room),
     list_items(Room).
 
@@ -482,7 +506,7 @@ list_occupants(Room) :-
     ; format(string(S),"You see: ~w",[Others]),
       highlight_text(S),
       ( member(vendor, Others)
-      -> highlight_text("Perhaps you could 'talk vendor' while you're here.")
+      -> tip_text("Tip: perhaps you could 'talk vendor' while you're here.")
       ; true
       )
     ).
