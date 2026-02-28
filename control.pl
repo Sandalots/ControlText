@@ -191,7 +191,9 @@ list_notes(Room) :-
       format(string(S),
              "Unread notes here: ~w. Use 'read <name>' to examine one.",
              [IdStr]),
-      highlight_text(S)
+      highlight_text("Unread notes here: "),
+      color_ln(red, IdStr),
+      highlight_text("Use 'read <name>' to examine one.")
     ).
 
 % read all notes in current location, mark them as read
@@ -555,8 +557,14 @@ list_occupants(Room) :-
     ( Others = [] -> true
     ; format(string(S),"You see: ~w",[Others]),
       highlight_text(S),
-      ( member(vendor, Others)
+      ( member(ahti, Others)
+      -> tip_text("Tip: perhaps you could 'talk ahti' while you're here."),
+         writeln("")
+      ; member(vendor, Others)
       -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
+         writeln("")
+      ; member(hiss_guard, Others)
+      -> tip_text("Tip: use 'attack' to deal damage to the Hiss Guard!"),
          writeln("")
       ; true
       )
@@ -565,8 +573,10 @@ list_occupants(Room) :-
 list_items(Room) :-
     findall(I, object(I, Room), Items),
     ( Items = [] -> true
-    ; format(string(S),"Items here: ~w",[Items]),
-      highlight_text(S)
+    ; atomic_list_concat(Items, ', ', ItemStr),
+      highlight_text("Items here: "),
+      color_ln(red, ItemStr),
+      highlight_text("Use 'take <item>' to pick something up.")
     ).
 
 take_item(Item) :-
