@@ -11,13 +11,20 @@
 :- dynamic location/2.
 :- dynamic health/2.
 :- dynamic has/2.
-:- dynamic read_note/2.          % store room–noteid pairs already read
+:- dynamic read_note/2.
+:- dynamic object/2.
 :- use_module(library(pcre)).        % for re_replace/4
 :- use_module(library(ansi_term)).   % for colour output
 
 /* --- Helpers --- */
 
-% strip non‑letters from the beginning/end of a word so "enter." → "enter"
+clean_token_smart(In, Out) :-
+    % if input looks like it might be a code (has letters and numbers), keep it as-is
+    (re_match('[a-z]+[0-9]|[0-9]+[a-z]'/i, In)
+    -> Out = In
+    ;  clean_token(In, Out)
+    ).
+
 clean_token(In, Out) :-
     re_replace('(^[^a-z]+|[^a-z]+$)'/i, '', In, Out).
 
@@ -48,7 +55,9 @@ health(hiss_guard, 30).
 /* --- Map --- */
 
 connected(street, lobby, enter).
+connected(street, lobby, north).
 connected(lobby, street, exit).
+connected(lobby, street, south).
 
 connected(street, food_vendor, east).        % hot‑dog vendor
 connected(food_vendor, street, west).
@@ -253,7 +262,7 @@ game_loop :-
     read_line_to_string(user_input, Line),
     string_lower(Line, Lower),
     split_string(Lower, " ", " \t", Words0),
-    maplist(clean_token, Words0, Words),          % remove punctuation
+    maplist(clean_token_smart, Words0, Words),          % use smart cleaning
     maplist(atom_string, Tokens, Words),
     (   parse(Tokens, Command)
     ->  dispatch(Command),
@@ -377,7 +386,8 @@ move(jesse, Dir) :-
     Dir \= enter,
     \+ connected(street, _, Dir),      % only block if no exit that way
     funny_outside_message,
-    !.
+    !,
+    describe_here.
 
 move(Actor, Dir) :-
     location(Actor, Room),
@@ -516,11 +526,19 @@ list_items(Room) :-
 
 take_item(Item) :-
     location(jesse, Room),
-    object(Item, Room),
+    atom_string(Item, ItemStr),
+    string_lower(ItemStr, ItemLower),
+    atom_string(ItemAtom, ItemLower),
+    findall(Obj, object(Obj, Room), Objects),
+    member(MatchObj, Objects),
+    atom_string(MatchObj, ObjStr),
+    string_lower(ObjStr, ObjLower),
+    atom_string(ObjAtom, ObjLower),
+    ( ObjAtom = ItemAtom ; atom_concat(ItemAtom, 's', ObjAtom) ; atom_concat(ObjAtom, 's', ItemAtom) ),
     !,
-    retract(object(Item, Room)),
-    assertz(has(jesse, Item)),
-    format("You take the ~w.~n", [Item]),
+    retract(object(MatchObj, Room)),
+    assertz(has(jesse, MatchObj)),
+    format("You take the ~w.~n", [MatchObj]),
     describe_here.
 
 take_item(Item) :-
@@ -542,11 +560,11 @@ unlock_item(Item, Code) :-
        ; location(jesse, food_vendor),
          object(locked_box, food_vendor),
          !,
-         ( Code = bureau47
+         ( Code == bureau47
          -> retract(object(locked_box, food_vendor)),
-            assertz(has(jesse, mystery_key)),
-            highlight_text("You unlock the box and find a mysterious key inside!"),
-            describe_here
+            assertz(has(jesse, lab77_key)),
+            highlight_text("You unlock the box and find a Lab 77 key inside!"),
+            tip_text("The lab77_key has been added to your inventory.")
          ;  color_ln(red, "That's not the right code.")
          )
        )
@@ -561,6 +579,7 @@ restart_game :-
     retractall(has(_, _)),
     retractall(read_note(_, _)),
     retractall(outside_attempts(_)),
+    retractall(object(_, _)),
     
     % restore initial state
     assertz(location(jesse, street)),
@@ -570,6 +589,9 @@ restart_game :-
     assertz(health(jesse, 100)),
     assertz(health(hiss_guard, 30)),
     assertz(outside_attempts(0)),
+    assertz(object(keys, lobby)),
+    assertz(object(service_weapon, directors_office)),
+    assertz(object(locked_box, food_vendor)),
     
     % restart game
     normal_text("Game restarted!"),
