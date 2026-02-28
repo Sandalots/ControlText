@@ -270,8 +270,18 @@ list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
     ( Unread = [] -> true
     ; atomic_list_concat(Unread, ', ', IdStr),
-      atomic_list_concat(['Unread notes here: ', IdStr, '. Use ''read <name>'' to examine one.'], Message),
-      color_ln(yellow, Message)
+      last_color(LastColor),
+      ( LastColor \= yellow, LastColor \= default
+      -> writeln("")
+      ; true
+      ),
+      ansi_format([fg(yellow)], "Unread notes here: ", []),
+      ansi_format([fg(red), italic], "~w", [IdStr]),
+      ansi_format([fg(yellow)], ". Use ", []),
+      ansi_format([fg(cyan), italic], "'read <name>'", []),
+      ansi_format([fg(yellow)], " to examine one.~n", []),
+      retract(last_color(LastColor)),
+      assert(last_color(yellow))
     ).
 
 % read all notes in current location, mark them as read
@@ -279,9 +289,23 @@ read_notes(all) :-
     location(jesse, Room),
     findall(Id-Text, (note(Room,Id,Text), \+ read_note(Room,Id)), Pairs),
     ( Pairs = [] ->
-        color_ln(red, "There's nothing to read here.")
+        last_color(LastColor),
+        ( LastColor \= red, LastColor \= default
+        -> writeln("")
+        ; true
+        ),
+        ansi_format([fg(red)], "There's nothing to read here.~n", []),
+        retract(last_color(LastColor)),
+        assert(last_color(red))
     ; forall(member(Id-Text, Pairs),
-             ( color_ln(red, Text),
+             ( last_color(LastColor),
+               ( LastColor \= red, LastColor \= default
+               -> writeln("")
+               ; true
+               ),
+               ansi_format([fg(red)], "~w~n", [Text]),
+               retract(last_color(LastColor)),
+               assert(last_color(red)),
                assertz(read_note(Room,Id))
              ))
     ).
@@ -291,11 +315,32 @@ read_notes(Name) :-
     location(jesse, Room),
     ( note(Room, Name, Text) ->
         ( read_note(Room, Name) ->
-            color_ln(red, "You've already read that.")
-        ; color_ln(red, Text),
+            last_color(LastColor),
+            ( LastColor \= red, LastColor \= default
+            -> writeln("")
+            ; true
+            ),
+            ansi_format([fg(red)], "You've already read that.~n", []),
+            retract(last_color(LastColor)),
+            assert(last_color(red))
+        ; last_color(LastColor),
+          ( LastColor \= red, LastColor \= default
+          -> writeln("")
+          ; true
+          ),
+          ansi_format([fg(red)], "~w~n", [Text]),
+          retract(last_color(LastColor)),
+          assert(last_color(red)),
           assertz(read_note(Room, Name))
         )
-    ; color_ln(red, "No such note here.")
+    ; last_color(LastColor),
+      ( LastColor \= red, LastColor \= default
+      -> writeln("")
+      ; true
+      ),
+      ansi_format([fg(red)], "No such note here.~n", []),
+      retract(last_color(LastColor)),
+      assert(last_color(red))
     ).
 
 /* --- Dialogue --- */
@@ -728,10 +773,19 @@ list_occupants(Room) :-
 list_items(Room) :-
     findall(I, object(I, Room), Items),
     ( Items = [] -> true
-    ; atomic_list_concat(Items, ', ', ItemStr),
+    ; last_color(LastColor),
+      ( LastColor \= yellow, LastColor \= default
+      -> writeln("")
+      ; true
+      ),
+      atomic_list_concat(Items, ', ', ItemStr),
       ansi_format([fg(yellow)], "Items here: ", []),
-      ansi_format([fg(red)], "~w", [ItemStr]),
-      ansi_format([fg(yellow)], ". Use 'take <item>' to pick something up.~n", [])
+      ansi_format([fg(red), italic], "~w", [ItemStr]),
+      ansi_format([fg(yellow)], ". Use ", []),
+      ansi_format([fg(cyan), italic], "'take <item>'", []),
+      ansi_format([fg(yellow)], " to pick something up.~n", []),
+      retract(last_color(LastColor)),
+      assert(last_color(yellow))
     ).
 
 take_item(Item) :-
