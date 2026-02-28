@@ -90,12 +90,14 @@ note_text(Text) :-
 
 location(jesse, street).
 location(ahti, janitor_hall).
-location(hiss_guard, upper_hall).
+% hiss_guard spawns when service_weapon is picked up
+location(hiss_brute, atrium).
 location(vendor, food_vendor).
 
 health(jesse, 100).
 max_health(jesse, 100).
 health(hiss_guard, 30).
+health(hiss_brute, 50).
 weapon_charge(jesse, 10).
 max_weapon_charge(jesse, 10).
 
@@ -313,9 +315,11 @@ list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
     ( Unread = [] -> true
     ; atomic_list_concat(Unread, ', ', IdStr),
+      writeln(""),
       highlight_text("Unread notes here:"),
       note_text(IdStr),
-      highlight_text("Use 'read <name>' to examine one.")
+      highlight_text("Use 'read <name>' to examine and read one."),
+      writeln("")
     ).
 
 % read all notes in current location, mark them as read
@@ -367,10 +371,32 @@ combat(jesse, hiss_guard) :-
     \+ has(jesse, service_weapon),
     normal_text("You reach for a weapon... but you don't have the Service Weapon yet."), !.
 
+combat(jesse, hiss_guard) :-
+    location(jesse, upper_hall),
+    has(jesse, service_weapon),
+    health(hiss_guard, HP),
+    HP > 0,
+    !,
+    weapon_charge(jesse, Charge),
+    ( Charge =< 0
+    -> highlight_text("Your weapon is out of charge! Use 'skip' to recharge.")
+    ;  Dmg is 10,
+       NewHP is HP - Dmg,
+       retract(health(hiss_guard, HP)),
+       assert(health(hiss_guard, NewHP)),
+       NewCharge is Charge - 1,
+       retract(weapon_charge(jesse, Charge)),
+       assert(weapon_charge(jesse, NewCharge)),
+       format(atom(Msg), "You fire! Hiss Guard health: ~w -> ~w", [HP, NewHP]),
+       normal_text(Msg),
+       enemy_turn
+    ).
+
+combat(jesse, hiss_guard) :-
+    normal_text("The Hiss Guard is already dead."), !.
+
 combat(_, hiss_guard) :-
     normal_text("There's nothing to attack here."), !.
-
-/* --- Enemy Turn --- */
 
 enemy_turn :-
     health(hiss_guard, HP),
@@ -385,11 +411,53 @@ enemy_turn :-
        assert(health(jesse, NewJHP)),
        max_health(jesse, MaxHP),
        format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
-       highlight_text(HealthMsg)
+       highlight_text(HealthMsg),
+       check_death
+    ).
+
+enemy_turn_brute :-
+    health(hiss_brute, HP),
+    ( HP =< 0
+    -> highlight_text("═══════════════════════════════════"),
+       highlight_text("The Hiss Brute collapses into silence."),
+       highlight_text("═══════════════════════════════════")
+    ;  normal_text("The Hiss Brute charges at you!"),
+       health(jesse, JHP),
+       NewJHP is JHP - 12,
+       retract(health(jesse, JHP)),
+       assert(health(jesse, NewJHP)),
+       max_health(jesse, MaxHP),
+       format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
+       highlight_text(HealthMsg),
+       check_death
+    ).
+
+check_death :-
+    health(jesse, HP),
+    ( HP =< 0
+    -> highlight_text(""),
+       highlight_text("╔═══════════════════════════════════╗"),
+       highlight_text("║           GAME  OVER              ║"),
+       highlight_text("╚═══════════════════════════════════╝"),
+       normal_text("You have succumbed to the Hiss. The House claims another soul."),
+       normal_text("Type 'restart' to try again."),
+       game_loop   % keep loop running so player can restart
+    ; true
     ).
 
 skip_turn :-
-    normal_text("You can only skip your turn during combat."), !.
+    location(jesse, Room),
+    living_enemy_here(Room),
+    !,
+    ( location(hiss_brute, Room), health(hiss_brute, HP), HP > 0
+    -> normal_text("You hold your ground. The enemy seizes the moment..."),
+       enemy_turn_brute
+    ;  normal_text("You hold your ground. The enemy seizes the moment..."),
+       enemy_turn
+    ).
+
+skip_turn :-
+    normal_text("You can only skip your turn during combat.").
 
 /* --- Enemy Helpers --- */
 
@@ -398,6 +466,12 @@ living_enemy_here(Room) :-
     health(hiss_guard, HP),
     HP > 0,
     has(jesse, service_weapon).  % only "real" if player can see/fight it
+
+living_enemy_here(Room) :-
+    location(hiss_brute, Room),
+    health(hiss_brute, HP),
+    HP > 0,
+    has(jesse, service_weapon).
 
 /* --- Game Start --- */
 
@@ -410,7 +484,7 @@ start :-
     normal_text("The building looms above you, humming with a strange, low resonance."),
     normal_text("Something pulls you toward the entrance."),
     space_if_color_changed,
-    tip_text("Tip: try 'enter' to go inside and continue the story. You can also go east to visit the food vendor; if stuck there, go west back to the street entrance."),
+    tip_text("Tip: try 'enter' or 'go north' to go inside and continue the story. You can also go east to visit the food vendor; if stuck there, go west back to the street entrance."),
     space_if_color_changed,
     tip_text("Tip: try 'help' to list all available commands."),
     space_if_color_changed,
@@ -454,6 +528,7 @@ parse([talk, vendor], talk(vendor)).
 
 parse([attack], attack).
 parse([attack, hiss_guard], attack(hiss_guard)).
+parse([attack, hiss_brute], attack(hiss_brute)).
 
 parse([take, Item], take(Item)).
 parse([pick, up, Item], take(Item)).
@@ -495,8 +570,18 @@ dispatch(go(Dir)) :- !, move(jesse, Dir, Moved), ( Moved = moved -> describe_her
 dispatch(talk(ahti)) :- !, talk_to(ahti).
 dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
-dispatch(attack) :- !, combat(jesse, hiss_guard).
+dispatch(attack) :-
+    !,
+    location(jesse, Room),
+    ( living_enemy_here(Room)
+    -> ( location(hiss_brute, Room), health(hiss_brute, HP), HP > 0
+       -> combat(jesse, hiss_brute)
+       ;  combat(jesse, hiss_guard)
+       )
+    ;  normal_text("There's nothing to attack here.")
+    ).
 dispatch(attack(hiss_guard)) :- !, combat(jesse, hiss_guard).
+dispatch(attack(hiss_brute)) :- !, combat(jesse, hiss_brute).
 dispatch(skip) :- !, skip_turn.
 dispatch(unlock(Item, Code)) :- !, unlock_item(Item, Code).
 dispatch(restart) :- !, restart_game.
@@ -626,8 +711,8 @@ map_label_center(Room, Label) :-
 label_with_status(Name, Status, Label) :-
     ( Status = locked
     -> format(atom(Label), "[~w] (locked)", [Name])
-    ;  format(atom(Label), "[~w]", [Name])
-    ).
+  ;  format(atom(Label), "[~w]", [Name])
+  ).
 
 dir_equiv(north, north).
 dir_equiv(north, enter).
@@ -744,6 +829,9 @@ list_occupants(Room) :-
           ; member(hiss_guard, FilteredOthers)
           -> tip_text("Tip: use 'attack' to deal damage to the Hiss Guard!"),
              space_if_color_changed
+          ; member(hiss_brute, FilteredOthers)
+          -> tip_text("Tip: use 'attack' to deal damage to the Hiss Brute!"),
+             space_if_color_changed
           ; true
           )
         )
@@ -751,15 +839,19 @@ list_occupants(Room) :-
 
 visible_npc(hiss_guard) :- has(jesse, service_weapon), !.
 visible_npc(hiss_guard) :- !, fail.
+visible_npc(hiss_brute) :- has(jesse, service_weapon), !.
+visible_npc(hiss_brute) :- !, fail.
 visible_npc(_).
 
 list_items(Room) :-
     findall(I, object(I, Room), Items),
     ( Items = [] -> true
     ; atomic_list_concat(Items, ', ', ItemStr),
+      writeln(""),
       highlight_text("Items here:"),
       note_text(ItemStr),
-      highlight_text("Use 'take <item>' to pick something up.")
+      highlight_text("Use 'take <item>' to pick something up."),
+      writeln("")
     ).
 
 take_item(Item) :-
@@ -815,7 +907,12 @@ take_item(Item) :-
     ; retract(object(MatchObj, Room)),
       assertz(has(jesse, MatchObj)),
       format(atom(M), "You take the ~w.", [MatchObj]),
-      normal_text(M)
+      normal_text(M),
+      ( MatchObj = service_weapon
+      -> assertz(location(hiss_guard, upper_hall)),
+         highlight_text("A distant screech echoes through the building...")
+      ; true
+      )
     ).
 
 take_item(Item) :-
@@ -866,13 +963,15 @@ restart_game :-
     % restore initial state
     assertz(location(jesse, street)),
     assertz(location(ahti, janitor_hall)),
-    assertz(location(hiss_guard, upper_hall)),
+    % hiss_guard spawns when service_weapon is picked up
+    assertz(location(hiss_brute, atrium)),
     assertz(location(vendor, food_vendor)),
     assertz(health(jesse, 100)),
     assertz(max_health(jesse, 100)),
     assertz(weapon_charge(jesse, 10)),
     assertz(max_weapon_charge(jesse, 10)),
     assertz(health(hiss_guard, 30)),
+    assertz(health(hiss_brute, 50)),
     assertz(outside_attempts(0)),
     assertz(object(keys, lobby)),
     assertz(object(service_weapon, directors_office)),
