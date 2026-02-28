@@ -313,8 +313,9 @@ list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
     ( Unread = [] -> true
     ; atomic_list_concat(Unread, ', ', IdStr),
-      atomic_list_concat(["Unread notes here: ", IdStr, ". Use 'read <name>' to examine one."], Msg),
-      highlight_text(Msg)
+      highlight_text("Unread notes here:"),
+      note_text(IdStr),
+      highlight_text("Use 'read <name>' to examine one.")
     ).
 
 % read all notes in current location, mark them as read
@@ -756,8 +757,9 @@ list_items(Room) :-
     findall(I, object(I, Room), Items),
     ( Items = [] -> true
     ; atomic_list_concat(Items, ', ', ItemStr),
-      atomic_list_concat(["Items here: ", ItemStr, ". Use 'take <item>' to pick something up."], Msg),
-      highlight_text(Msg)
+      highlight_text("Items here:"),
+      note_text(ItemStr),
+      highlight_text("Use 'take <item>' to pick something up.")
     ).
 
 take_item(Item) :-
