@@ -163,6 +163,10 @@ connected(secret_chamber, lab77, north) :-
 connected(upper_hall, directors_office, north).
 connected(directors_office, upper_hall, south).
 connected(upper_hall, lobby, south).        % return route from upper hall
+connected(upper_hall, security_post, east).
+connected(security_post, upper_hall, west).
+connected(upper_hall, records_room, west).
+connected(records_room, upper_hall, east).
 
 /* --- Room Descriptions --- */
 
@@ -195,8 +199,20 @@ The air feels heavy with presence.").
 description(upper_hall,
 "A long corridor. A Hiss‑infected guard twitches violently.").
 
+description(security_post,
+"A small security post. Monitors flicker with static. An overturned chair \
+suggests someone left in a hurry. A first aid kit sits on the desk.").
+
+description(records_room,
+"A dusty records room. Filing cabinets line the walls, many hanging open \
+and emptied. The smell of old paper fills the air. A first aid kit \
+sits on a shelf, untouched.").
+
 description(directors_office,
-"A quiet office. A pedestal holds an unremarkable service pistol.").
+"A quiet office bathed in pale light. The Director slumps behind the desk, \
+a single bullet wound to the temple. In his outstretched hand — the Service Weapon. \
+It hums faintly, as if waiting. Whatever drove him to this end, the weapon \
+chose to stay. Pick it up. You'll need it.").
 
 description(lab77_locked,
 "A sealed laboratory door marked 'LAB 77' blocks your path. It's locked tight.").
@@ -215,6 +231,8 @@ object(smash, lab77).
 object(health_upgrade, secret_chamber).
 object(health_upgrade, toilets).
 object(health_kit, lobby).
+object(health_kit, security_post).
+object(health_kit, records_room).
 object(charge_upgrade, lobby).
 
 /* --- Notes --- */
@@ -265,6 +283,45 @@ note(secret_chamber, equipment_note,
 
 note(secret_chamber, final_note,
     "A hastily written note: 'If you're reading this, then the House has let you in. Trust nothing. Find him and get out.'").
+
+note(security_post, incident_report,
+    "Incident report, partially burned: 'Officers responded to anomalous \
+readings on floor 3. Two personnel unaccounted for. Recommend immediate \
+evacuation of — ' The rest is ash.").
+
+note(security_post, monitor_note,
+    "Sticky note on a monitor: 'Camera 7 has been showing the same frame \
+for three days. Maintenance says it's fine. Maintenance has not been seen since.'").
+
+note(security_post, duty_roster,
+    "A duty roster pinned to the wall. Every name has been crossed out \
+in red ink. Yours is not on the list — but there's a blank line at the bottom.").
+
+note(records_room, classified_memo,
+    "Stamped CLASSIFIED: 'Project THRESHOLD — all documentation to be purged \
+upon containment failure. If you are reading this, containment has failed.'").
+
+note(records_room, personnel_file,
+    "A personnel file, name redacted: 'Subject displays unusual resistance \
+to paranatural influence. Recommended for Director programme. —Dr. Darling'").
+
+note(records_room, filing_note,
+    "Handwritten on a folder tab: 'DO NOT FILE UNDER H. The H files have \
+been walking again.'").
+
+note(records_room, torn_letter,
+    "A torn letter, sender unknown: 'They said the House chooses its Director. \
+I didn't believe them. I believe them now. Don't come looking for me.'").
+
+note(directors_office, directors_journal,
+    "The Director's open journal, final entry: 'The weapon spoke to me again last night. \
+It said a name I didn't recognise. I wrote it down. I burned the page. \
+I still hear it.'").
+
+note(directors_office, memo_to_staff,
+    "An unsent memo: 'To all Bureau staff — the situation is under control. \
+Please disregard the sounds coming from the walls. This is normal. \
+Everything is normal. —Director'").
 
 % when you enter or start, tell player if there are unread notes
 list_notes(Room) :-
@@ -941,6 +998,8 @@ restart_game :-
     assertz(object(health_upgrade, toilets)),
     assertz(object(charge_upgrade, lobby)),
     assertz(object(health_kit, lobby)),
+    assertz(object(health_kit, security_post)),
+    assertz(object(health_kit, records_room)),
     
     % restart game
     normal_text("Game restarted!"),
