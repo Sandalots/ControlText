@@ -11,6 +11,7 @@
 :- dynamic location/2.
 :- dynamic health/2.
 :- dynamic has/2.
+:- dynamic read_note/2.          % store room–noteid pairs already read
 :- use_module(library(pcre)).        % for re_replace/4
 
 /* --- Helpers --- */
@@ -68,24 +69,47 @@ description(directors_office,
 "A quiet office. A pedestal holds an unremarkable service pistol.").
 
 /* --- Items --- */
-
 object(keys, lobby).
 object(service_weapon, directors_office).
 
-take_item(keys) :-
-    location(jesse, lobby),
-    retract(object(keys, lobby)),
-    assert(has(jesse, keys)),
-    writeln("You pick up the janitor's keys. The lights flicker."), !.
+/* --- Notes --- */
+% note(Room, Id, Text).
+note(street, welcome,
+    "A faded government memo: 'The Bureau never sleeps. Neither should you.'").
+note(lobby, janitor,
+    "Scrawled on the janitor's cart: 'Keys open doors; doors open minds.'").
 
-take_item(service_weapon) :-
-    location(jesse, directors_office),
-    retract(object(service_weapon, directors_office)),
-    assert(has(jesse, service_weapon)),
-    writeln("The weapon vibrates in your hand. You feel… chosen."), !.
+% when you enter or start, tell player if there are unread notes
+list_notes(Room) :-
+    findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
+    ( Unread = [] -> true
+    ; format("Unread notes here: ~w. Use 'read <name>' to examine one.~n",
+             [Unread])
+    ).
 
-take_item(_) :-
-    writeln("You can't take that.").
+% read all notes in current location, mark them as read
+read_notes(all) :-
+    location(jesse, Room),
+    findall(Id-Text, (note(Room,Id,Text), \+ read_note(Room,Id)), Pairs),
+    ( Pairs = [] ->
+        writeln("There's nothing to read here.")
+    ; forall(member(Id-Text, Pairs),
+             ( writeln(Text),
+               assertz(read_note(Room,Id))
+             ))
+    ).
+
+% read a single named note
+read_notes(Name) :-
+    location(jesse, Room),
+    ( note(Room, Name, Text) ->
+        ( read_note(Room, Name) ->
+            writeln("You've already read that.")
+        ; writeln(Text),
+          assertz(read_note(Room, Name))
+        )
+    ; writeln("No such note here.")
+    ).
 
 /* --- Dialogue --- */
 
@@ -146,6 +170,7 @@ start :-
     % now print the description for the starting room
     description(Room, Desc),
     writeln(Desc),
+    list_notes(Room),            % <--- mention notes at start
     list_occupants(Room),
     list_items(Room),
 
@@ -191,7 +216,12 @@ parse([enter], go(enter)).
 parse([go, inside], go(enter)).
 parse([go, in], go(enter)).
 
-
+parse([read], read(all)).
+parse([read, note],  read(all)).
+parse([read, notes], read(all)).
+parse([read, Name], read(Name)).
+parse([read, note, Name],  read(Name)).
+parse([read, notes, Name], read(Name)).
 
 /* --- Command Dispatch --- */
 
@@ -201,6 +231,7 @@ dispatch(go(Dir))             :- !, move(jesse, Dir).
 dispatch(talk(ahti))          :- !, talk_to(ahti).
 dispatch(take(Obj))           :- !, take_item(Obj).
 dispatch(attack(hiss_guard))  :- !, combat(jesse, hiss_guard).
+dispatch(read(Name))          :- !, read_notes(Name).
 dispatch(quit)                :- !, writeln("You step back from the House.").
 dispatch(help)                :- !, show_help.
 
@@ -384,6 +415,7 @@ describe_here :-
     show_map(Room),
     description(Room, Desc),
     writeln(Desc),
+    list_notes(Room),            % <--- notify about notes
     list_occupants(Room),
     list_items(Room).
 
