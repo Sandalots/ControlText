@@ -47,6 +47,14 @@ color_ln(Color, Text) :-
     retract(last_color(LastColor)),
     assert(last_color(Color)).
 
+% Dynamic spacing - only add newline if color changed
+space_if_color_changed :-
+    last_color(LastColor),
+    ( LastColor \= default
+    -> writeln("")
+    ; true
+    ).
+
 normal_text(Text) :-
     last_color(LastColor),
     ( LastColor \= green, LastColor \= default
@@ -262,9 +270,8 @@ list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
     ( Unread = [] -> true
     ; atomic_list_concat(Unread, ', ', IdStr),
-      ansi_format([fg(yellow)], "Unread notes here: ", []),
-      ansi_format([fg(red)], "~w", [IdStr]),
-      ansi_format([fg(yellow)], ". Use 'read <name>' to examine one.~n", [])
+      atomic_list_concat(['Unread notes here: ', IdStr, '. Use ''read <name>'' to examine one.'], Message),
+      color_ln(yellow, Message)
     ).
 
 % read all notes in current location, mark them as read
@@ -392,18 +399,16 @@ start :-
     normal_text("You arrive at the Federal Bureau of Control."),
     normal_text("The building looms above you, humming with a strange, low resonance."),
     normal_text("Something pulls you toward the entrance."),
-    writeln(""),
+    space_if_color_changed,
     tip_text("Tip: try 'enter' to go inside and continue the story. You can also go east to visit the food vendor; if stuck there, go west back to the street entrance."),
-    writeln(""),
+    space_if_color_changed,
     tip_text("Tip: try 'help' to list all available commands."),
-    writeln(""),
-    % now print the description for the starting room
+    space_if_color_changed,
     description(Room, Desc),
-    normal_text(Desc),          % description also coloured
-    list_notes(Room),            % <--- mention notes at start
+    normal_text(Desc),
+    list_notes(Room),
     list_occupants(Room),
     list_items(Room),
-
     game_loop.
 
 /* --- Game Loop --- */
@@ -688,7 +693,7 @@ describe_here :-
     ( Room = food_vendor
     -> tip_text("Tip: if you're stuck, go west back to the street entrance to the Oldest House."),
        tip_text("Tip: try 'unlock locked_box <code>' if you find a clue."),
-       writeln("")
+       space_if_color_changed
     ; true
     ),
     list_notes(Room),
@@ -698,9 +703,9 @@ describe_here :-
 list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
     ( Others = [] -> true
-    ; FilteredOthers = Others,  % show all by default
+    ; FilteredOthers = Others,
       ( Room = upper_hall, \+ has(jesse, service_weapon)
-      -> FilteredOthers = []    % hide hiss_guard until you have weapon
+      -> FilteredOthers = []
       ; FilteredOthers = Others
       ),
       ( FilteredOthers = [] -> true
@@ -708,13 +713,13 @@ list_occupants(Room) :-
         highlight_text(S),
         ( member(ahti, FilteredOthers)
         -> tip_text("Tip: perhaps you could 'talk ahti' while you're here."),
-           writeln("")
+           space_if_color_changed
         ; member(vendor, FilteredOthers)
         -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
-           writeln("")
+           space_if_color_changed
         ; member(hiss_guard, FilteredOthers)
         -> tip_text("Tip: use 'attack' to deal damage to the Hiss Guard!"),
-           writeln("")
+           space_if_color_changed
         ; true
         )
       )
