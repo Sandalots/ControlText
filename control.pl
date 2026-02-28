@@ -19,6 +19,7 @@
 :- dynamic last_color/1.
 :- dynamic game_over/0.
 :- dynamic health_kit_tip_shown/0.
+:- dynamic attack_tip_shown/0.
 :- dynamic hiss_infected/1.
 :- dynamic weapon_just_taken/0.
 :- discontiguous health/2.
@@ -115,7 +116,10 @@ announce_enemies(Room) :-
            format(string(S), "Enemy spotted: ~w", [N]),
            highlight_text(S)
        )),
-       tip_text("Use 'attack' to fight!")
+       ( attack_tip_shown -> true
+       ; tip_text("Use 'attack' to fight!"),
+         assertz(attack_tip_shown)
+       )
     ; true
     ).
 
@@ -868,8 +872,7 @@ move(Actor, Dir, moved) :-
     retract(location(Actor, Room)),
     assert(location(Actor, Next)),
     ( Actor = jesse
-    -> infection_check(Next),
-       announce_enemies(Next)
+    -> infection_check(Next)
     ; true
     ).
 
@@ -997,7 +1000,8 @@ describe_here :-
     ),
     list_notes(Room),
     list_occupants(Room),
-    list_items(Room).
+    list_items(Room),
+    announce_enemies(Room).
 
 list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
@@ -1005,19 +1009,8 @@ list_occupants(Room) :-
     ;   include(visible_npc, Others, FilteredOthers),
         ( FilteredOthers = [] -> true
         ;
-          % Split into enemies and friendly NPCs
-          include(is_hiss_enemy, FilteredOthers, Enemies),
+          % Only show friendly NPCs here; enemies are announced via announce_enemies
           exclude(is_hiss_enemy, FilteredOthers, Friendlies),
-          ( Enemies \= [] ->
-              forall(member(E, Enemies), (
-                  enemy_display_name(E, EName),
-                  format(string(ES), "Enemy spotted: ~w", [EName]),
-                  highlight_text(ES)
-              )),
-              tip_text("Tip: use 'attack' to fight the enemy!"),
-              space_if_color_changed
-          ; true
-          ),
           ( Friendlies \= [] ->
               format(string(S), "You see: ~w", [Friendlies]),
               highlight_text(S),
@@ -1296,6 +1289,7 @@ unlock_item(Item, Code) :-
 restart_game :-
     retractall(game_over),
     retractall(health_kit_tip_shown),
+    retractall(attack_tip_shown),
     retractall(hiss_infected(_)),
     retractall(weapon_just_taken),
     retractall(location(_, _)),
