@@ -13,13 +13,20 @@
 :- dynamic has/2.
 :- dynamic read_note/2.          % store room–noteid pairs already read
 :- use_module(library(pcre)).        % for re_replace/4
+:- use_module(library(ansi_term)).   % for colour output
 
 /* --- Helpers --- */
 
 % strip non‑letters from the beginning/end of a word so "enter." → "enter"
 clean_token(In, Out) :-
-    % note the '/i' flag – not 'i' immediately after the quote
     re_replace('(^[^a-z]+|[^a-z]+$)'/i, '', In, Out).
+
+% colourised output helpers
+color_ln(Color, Text) :-
+    ansi_format([fg(Color)], '~w~n', [Text]).
+normal_text(Text)    :- color_ln(green,  Text).
+highlight_text(Text) :- color_ln(yellow, Text).
+map_text(Text)       :- color_ln(cyan,   Text).
 
 /* --- Initial State --- */
 
@@ -83,8 +90,10 @@ note(lobby, janitor,
 list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
     ( Unread = [] -> true
-    ; format("Unread notes here: ~w. Use 'read <name>' to examine one.~n",
-             [Unread])
+    ; format(string(S),
+             "Unread notes here: ~w. Use 'read <name>' to examine one.",
+             [Unread]),
+      highlight_text(S)
     ).
 
 % read all notes in current location, mark them as read
@@ -161,15 +170,15 @@ start :-
     location(jesse, Room),
     show_map(Room),
 
-    writeln("You arrive at the Federal Bureau of Control."),
-    writeln("The building looms above you, humming with a strange, low resonance."),
-    writeln("Something pulls you toward the entrance."),
+    normal_text("You arrive at the Federal Bureau of Control."),
+    normal_text("The building looms above you, humming with a strange, low resonance."),
+    normal_text("Something pulls you toward the entrance."),
     writeln(""),
-    writeln("Tip: try 'enter' to go inside."),
+    highlight_text("Tip: try 'enter' to go inside."),
     writeln(""),
     % now print the description for the starting room
     description(Room, Desc),
-    writeln(Desc),
+    normal_text(Desc),
     list_notes(Room),            % <--- mention notes at start
     list_occupants(Room),
     list_items(Room),
@@ -367,22 +376,19 @@ show_map(Current) :-
     ( neighbor(Current, east,  E, EStatus)  -> label_with_status(E, EStatus, ELabel) ; ELabel = "" ),
     ( neighbor(Current, west,  W, WStatus)  -> label_with_status(W, WStatus, WLabel) ; WLabel = "" ),
 
-    writeln(""),
-    writeln("Relative Map:"),
+    map_text(""),
+    map_text("Relative Map:"),
 
     % dynamic centring calculations
     atom_length(Center, CL),
     BasePad = 6,
-    ArrowOff is BasePad + CL // 2,       % column where the vertical arrow should sit
+    _ArrowOff is BasePad + CL // 2,      % column where the vertical arrow should sit (unused)
 
-    % North (centre the room name over ArrowOff)
+    % North
     ( NLabel \= "" ->
-        atom_length(NLabel, NL),
-        NIndent is ArrowOff - NL // 2,
-        spaces(NIndent, Nsp),
-        format("~w~w~n", [Nsp, NLabel]),
-        spaces(ArrowOff, Aoff),
-        format("~w^~n~w|~n", [Aoff, Aoff])      % caret then bar
+        string_concat("   ", NLabel, S1),
+        map_text(S1),
+        map_text("      ^")
     ; true ),
 
     % horizontal connector for east/west neighbours
@@ -390,26 +396,26 @@ show_map(Current) :-
 
     % Middle: west - center - east (with arrowheads)
     ( WLabel \= "", ELabel \= "" ->
-        format("~w <-- ~w --> ~w~n", [WLabel, Center, ELabel])
+        format(string(M), "~w <-- ~w --> ~w", [WLabel, Center, ELabel]),
+        map_text(M)
     ; WLabel \= "" ->
-        format("~w <-- ~w~n", [WLabel, Center])
+        format(string(M), "~w <-- ~w", [WLabel, Center]),
+        map_text(M)
     ; ELabel \= "" ->
-        format("      ~w --> ~w~n", [Center, ELabel])
-    ;  % no lateral neighbors: just show center (centered)
-       format("      ~w~n", [Center])
+        format(string(M), "      ~w --> ~w", [Center, ELabel]),
+        map_text(M)
+    ;  format(string(M), "      ~w", [Center]),
+       map_text(M)
     ),
 
-    % South (same centring as north)
+    % South
     ( SLabel \= "" ->
-        atom_length(SLabel, SL),
-        SIndent is ArrowOff - SL // 2,
-        spaces(ArrowOff, Aoff2),
-        format("~wv~n~w|~n", [Aoff2, Aoff2]),    % keep this order or flip if desired
-        spaces(SIndent, Ssp),
-        format("~w~w~n", [Ssp, SLabel])
+        map_text("      v"),
+        string_concat("      ", SLabel, S2),
+        map_text(S2)
     ; true ),
 
-    writeln("").
+    map_text("").
 describe_here :-
     location(jesse, Room),
     show_map(Room),
@@ -421,11 +427,17 @@ describe_here :-
 
 list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
-    ( Others = [] -> true ; format("You see: ~w~n", [Others]) ).
+    ( Others = [] -> true
+    ; format(string(S),"You see: ~w",[Others]),
+      highlight_text(S)
+    ).
 
 list_items(Room) :-
     findall(I, object(I, Room), Items),
-    ( Items = [] -> true ; format("Items here: ~w~n", [Items]) ).
+    ( Items = [] -> true
+    ; format(string(S),"Items here: ~w",[Items]),
+      highlight_text(S)
+    ).
 
 % ensure game begins when invoked with `swipl game.pl`
 :- initialization(start, main).
