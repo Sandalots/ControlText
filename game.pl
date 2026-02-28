@@ -164,6 +164,7 @@ talk_to(_) :-
 
 combat(jesse, hiss_guard) :-
     location(jesse, upper_hall),
+    has(jesse, service_weapon),          % require weapon before combat
     health(hiss_guard, HP),
     HP > 0,
     writeln("You fire the Service Weapon."),
@@ -172,6 +173,11 @@ combat(jesse, hiss_guard) :-
     assert(health(hiss_guard, NewHP)),
     format("Hiss Guard now has ~w HP.~n", [NewHP]),
     enemy_turn, !.
+
+combat(jesse, hiss_guard) :-
+    location(jesse, upper_hall),
+    \+ has(jesse, service_weapon),
+    writeln("You reach for a weapon... but you don't have the Service Weapon yet."), !.
 
 combat(_, hiss_guard) :-
     writeln("There's nothing to attack here."), !.
@@ -244,6 +250,7 @@ parse([look, at, Obj], look_at(Obj)).
 parse([talk, ahti], talk(ahti)).
 parse([talk, vendor], talk(vendor)).               % <--- new
 
+parse([attack], attack).                       % new
 parse([attack, hiss_guard], attack(hiss_guard)).
 
 parse([quit], quit).
@@ -272,6 +279,7 @@ dispatch(go(Dir))             :- !, move(jesse, Dir).
 dispatch(talk(ahti))          :- !, talk_to(ahti).
 dispatch(talk(vendor))        :- !, talk_to(vendor).        % <--- new
 dispatch(take(Obj))           :- !, take_item(Obj).
+dispatch(attack)              :- !, combat(jesse, hiss_guard).   % new
 dispatch(attack(hiss_guard))  :- !, combat(jesse, hiss_guard).
 dispatch(read(Name))          :- !, read_notes(Name).
 dispatch(map)                 :- !, location(jesse, Room), show_map(Room).
@@ -296,8 +304,6 @@ show_help :-
     map_text("----------------"),
     highlight_text("OBJECTIVE: Find your estranged brother in the mysterious Oldest House."),
     map_text("================").
-
-% ...existing code...
 
 /* Funny Text */
 funny_outside_message :-
