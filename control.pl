@@ -16,7 +16,9 @@
 :- dynamic object/2.
 :- dynamic weapon_charge/2.
 :- dynamic max_weapon_charge/2.
-:- dynamic last_color/1.        % must be dynamic for web mode retractall
+:- dynamic last_color/1.
+:- dynamic game_over/0.
+:- dynamic health_kit_tip_shown/0.
 :- discontiguous health/2.
 :- use_module(library(pcre)).        % for re_replace/4
 :- use_module(library(ansi_term)).   % for colour output
@@ -403,7 +405,11 @@ enemy_turn :-
     ( HP =< 0
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Guard collapses into silence."),
-       highlight_text("═══════════════════════════════════")
+       highlight_text("═══════════════════════════════════"),
+       ( health_kit_tip_shown -> true
+       ; tip_text("Tip: took some damage? Look for health_kit items in rooms to restore your health."),
+         assertz(health_kit_tip_shown)
+       )
     ;  normal_text("The Hiss Guard lashes out!"),
        health(jesse, JHP),
        NewJHP is JHP - 25,
@@ -506,17 +512,17 @@ game_loop :-
     maplist(atom_string, Tokens, Words),
     ( game_over
     -> ( parse(Tokens, restart)
-       -> dispatch(restart)
+       -> dispatch(restart), game_loop
        ;  parse(Tokens, quit)
        -> dispatch(quit)
-       ;  normal_text("You are dead. Type 'restart' to try again or 'quit' to exit.")
-       ),
-       ( \+ game_over -> game_loop ; game_loop )
-    ;  (   parse(Tokens, Command)
-       ->  dispatch(Command),
-           ( Command = quit -> true ; game_loop )
-       ;   writeln("I don't understand."),
-           game_loop
+       ;  normal_text("You are dead. Type 'restart' to try again or 'quit' to exit."),
+          game_loop
+       )
+    ;  ( parse(Tokens, Command)
+       -> dispatch(Command),
+          ( Command = quit -> true ; game_loop )
+       ;  writeln("I don't understand."),
+          game_loop
        )
     ).
 
@@ -957,6 +963,7 @@ unlock_item(Item, Code) :-
 
 restart_game :-
     retractall(game_over),
+    retractall(health_kit_tip_shown),
     % retract all dynamic state
     retractall(location(_, _)),
     retractall(health(_, _)),
