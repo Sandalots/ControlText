@@ -40,12 +40,10 @@ speak(_, Text)      :- normal_text(Text).   % fallback
 location(jesse, street).
 location(ahti, janitor_hall).
 location(hiss_guard, upper_hall).
-location(vendor, food_vendor).      % new NPC
+location(vendor, food_vendor).
 
 health(jesse, 100).
 health(hiss_guard, 30).
-
-has(jesse, none).
 
 /* --- Map --- */
 
@@ -121,13 +119,23 @@ note(lobby, overtime_notice,
     "Notice to Staff: Overtime this week is mandatory. \
 The House has been shifting after hours.").
 
+note(west_road, old_sign,
+    "A weathered street sign, half-obscured by vines: 'Dimensional Research Wing - 2 miles.'").
+
+note(west_road, graffiti,
+    "Cryptic graffiti scratched into a brick wall: 'The House changes. Don't let it change you.'").
+
+note(west_road, lost_time,
+    "A discarded pocket watch lies in the dirt. The hands spin wildly, unable to settle on a time.").
+
 % when you enter or start, tell player if there are unread notes
 list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
     ( Unread = [] -> true
-    ; format(string(S),
+    ; atomic_list_concat(Unread, ', ', IdStr),
+      format(string(S),
              "Unread notes here: ~w. Use 'read <name>' to examine one.",
-             [Unread]),
+             [IdStr]),
       highlight_text(S)
     ).
 
@@ -199,16 +207,15 @@ combat(_, hiss_guard) :-
 
 enemy_turn :-
     health(hiss_guard, HP),
-    HP =< 0,
-    writeln("The Hiss Guard collapses into silence."), !.
-
-enemy_turn :-
-    writeln("The Hiss Guard lashes out!"),
-    health(jesse, JHP),
-    NewJHP is JHP - 8,
-    retract(health(jesse, JHP)),
-    assert(health(jesse, NewJHP)),
-    format("You now have ~w HP.~n", [NewJHP]).
+    ( HP =< 0
+    -> writeln("The Hiss Guard collapses into silence.")
+    ;  writeln("The Hiss Guard lashes out!"),
+       health(jesse, JHP),
+       NewJHP is JHP - 8,
+       retract(health(jesse, JHP)),
+       assert(health(jesse, NewJHP)),
+       format("You now have ~w HP.~n", [NewJHP])
+    ).
 
 /* --- Game Start --- */
 
@@ -261,13 +268,15 @@ parse([look], look).
 parse([look, at, Obj], look_at(Obj)).
 
 parse([talk, ahti], talk(ahti)).
-parse([talk, vendor], talk(vendor)).               % <--- new
+parse([talk, vendor], talk(vendor)).
 
-parse([attack], attack).                       % new
+parse([attack], attack).
 parse([attack, hiss_guard], attack(hiss_guard)).
 
-parse([quit], quit).
+parse([take, Item], take(Item)).
+parse([pick, up, Item], take(Item)).
 
+parse([quit], quit).
 parse([help], help).
 
 parse([enter], go(enter)).
@@ -275,10 +284,10 @@ parse([go, inside], go(enter)).
 parse([go, in], go(enter)).
 
 parse([read], read(all)).
-parse([read, note],  read(all)).
+parse([read, note], read(all)).
 parse([read, notes], read(all)).
 parse([read, Name], read(Name)).
-parse([read, note, Name],  read(Name)).
+parse([read, note, Name], read(Name)).
 parse([read, notes, Name], read(Name)).
 
 parse([map], map).
@@ -286,21 +295,20 @@ parse([show, map], map).
 
 /* --- Command Dispatch --- */
 
-dispatch(look)                :- !, describe_here.
-dispatch(look_at(Obj))        :- !, look_at(Obj).
-dispatch(go(Dir))             :- !, move(jesse, Dir).
-dispatch(talk(ahti))          :- !, talk_to(ahti).
-dispatch(talk(vendor))        :- !, talk_to(vendor).        % <--- new
-dispatch(take(Obj))           :- !, take_item(Obj).
-dispatch(attack)              :- !, combat(jesse, hiss_guard).   % new
-dispatch(attack(hiss_guard))  :- !, combat(jesse, hiss_guard).
-dispatch(read(Name))          :- !, read_notes(Name).
-dispatch(map)                 :- !, location(jesse, Room), show_map(Room).
-dispatch(quit)                :- !, writeln("You step back from the House.").
-dispatch(help)                :- !, show_help.
+dispatch(look) :- !, describe_here.
+dispatch(look_at(Obj)) :- !, look_at(Obj).
+dispatch(go(Dir)) :- !, move(jesse, Dir).
+dispatch(talk(ahti)) :- !, talk_to(ahti).
+dispatch(talk(vendor)) :- !, talk_to(vendor).
+dispatch(take(Obj)) :- !, take_item(Obj).
+dispatch(attack) :- !, combat(jesse, hiss_guard).
+dispatch(attack(hiss_guard)) :- !, combat(jesse, hiss_guard).
+dispatch(read(Name)) :- !, read_notes(Name).
+dispatch(map) :- !, location(jesse, Room), show_map(Room).
+dispatch(quit) :- !, writeln("You step back from the House.").
+dispatch(help) :- !, show_help.
 
-dispatch(Cmd) :-
-    format("I don't know how to handle: ~w~n", [Cmd]).
+dispatch(Cmd) :- format("I don't know how to handle: ~w~n", [Cmd]).
 
 /* --- Tutorial Text --- */
 show_help :-
@@ -367,7 +375,6 @@ move(Actor, Dir) :-
 
 /* --- Descriptions --- */
 
-% New: centered ASCII map showing only adjacent N/S/E/W rooms and locked status.
 map_label_center(Room, Label) :-
     format(atom(Label), "[>~w<]", [Room]).
 
@@ -377,34 +384,29 @@ label_with_status(Name, Status, Label) :-
     ;  format(atom(Label), "[~w]", [Name])
     ).
 
-% treat alternate connection atoms as cardinals
 dir_equiv(north, north).
 dir_equiv(north, enter).
 dir_equiv(south, south).
 dir_equiv(south, exit).
-dir_equiv(east,  east).
-dir_equiv(west,  west).
+dir_equiv(east, east).
+dir_equiv(west, west).
 
-% neighbor/4: succeed if there's an effective neighbor in Dir (now using dir_equiv/2).
 neighbor(Current, Cardinal, DisplayNext, Status) :-
     dir_equiv(Cardinal, ConnDir),
     ( connected(Current, Next, ConnDir) ->
         ( Next \= Current
         -> DisplayNext = Next, Status = open
-        ;  % Next == Current: check if an alternate clause exists (locked)
-           ( clause(connected(Current, Alt, ConnDir), _) , Alt \= Current
+        ;  ( clause(connected(Current, Alt, ConnDir), _), Alt \= Current
            -> DisplayNext = Alt, Status = locked
-           ;  % genuine self-loop -> treat as no neighbor
-              fail
+           ;  fail
            )
         )
-    ;  % no direct success: maybe there's a conditional clause that would allow movement (locked)
-       ( clause(connected(Current, Alt, ConnDir), _) ->
-           DisplayNext = Alt, Status = locked
-       ; fail )
+    ;  ( clause(connected(Current, Alt, ConnDir), _)
+       -> DisplayNext = Alt, Status = locked
+       ;  fail
+       )
     ).
 
-% produce a string of N spaces
 spaces(0, "").
 spaces(N, S) :-
     N > 0,
@@ -412,40 +414,21 @@ spaces(N, S) :-
     spaces(N1, S1),
     atom_concat(" ", S1, S).
 
-% print a short horizontal “‑” line under the center label when there
-% is a west or east neighbour; used by show_map/1
-print_horizontal_connector(Center, WLabel, ELabel) :-
-    atom_length(Center, CL),
-    ( WLabel \= "" ->
-        atom_length(WLabel, WL),
-        spaces(WL, Wsp),
-        format("~w-~n", [Wsp])
-    ; true ),
-    ( ELabel \= "" ->
-        % pad to roughly align with east arrow
-        Pad is 6 + CL,
-        spaces(Pad, Esp),
-        format("~w-~n", [Esp])
-    ; true ).
-
-% helper: formatted map line in map colour
 map_line(Fmt, Args) :-
     format(string(S), Fmt, Args),
     map_text(S).
 
-% helper: where the center label starts on the middle row
 center_start("", 0).
 center_start(WLabel, Start) :-
     atom_length(WLabel, WL),
-    Start is WL + 5.   % " <-- "
+    Start is WL + 5.
 
 show_map(Current) :-
     map_label_center(Current, Center),
-
     ( neighbor(Current, north, N, NStatus) -> label_with_status(N, NStatus, NLabel) ; NLabel = "" ),
     ( neighbor(Current, south, S, SStatus) -> label_with_status(S, SStatus, SLabel) ; SLabel = "" ),
-    ( neighbor(Current, east,  E, EStatus) -> label_with_status(E, EStatus, ELabel) ; ELabel = "" ),
-    ( neighbor(Current, west,  W, WStatus) -> label_with_status(W, WStatus, WLabel) ; WLabel = "" ),
+    ( neighbor(Current, east, E, EStatus) -> label_with_status(E, EStatus, ELabel) ; ELabel = "" ),
+    ( neighbor(Current, west, W, WStatus) -> label_with_status(W, WStatus, WLabel) ; WLabel = "" ),
 
     atom_length(Center, CL),
     center_start(WLabel, CenterStart),
@@ -455,7 +438,6 @@ show_map(Current) :-
     map_text(""),
     map_text("Relative Map:"),
 
-    % North (aligned to the center-room position on middle row)
     ( NLabel \= "" ->
         atom_length(NLabel, NL),
         NCol is max(0, ArrowCol - NL // 2),
@@ -465,8 +447,7 @@ show_map(Current) :-
         map_line("~w|", [ArrowPad])
     ; true ),
 
-    % Middle
-    ( WLabel \= "", ELabel \= "" ->
+    ( (WLabel \= "", ELabel \= "") ->
         map_line("~w <-- ~w --> ~w", [WLabel, Center, ELabel])
     ; WLabel \= "" ->
         map_line("~w <-- ~w", [WLabel, Center])
@@ -475,7 +456,6 @@ show_map(Current) :-
     ; map_line("~w", [Center])
     ),
 
-    % South (aligned to the same center-room position)
     ( SLabel \= "" ->
         atom_length(SLabel, SL),
         SCol is max(0, ArrowCol - SL // 2),
