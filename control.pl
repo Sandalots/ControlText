@@ -94,12 +94,14 @@ location(jesse, street).
 location(ahti, janitor_hall).
 % hiss_guard spawns when service_weapon is picked up
 location(hiss_brute, atrium).
+location(hiss_guard_b, containment_hall).
 location(vendor, food_vendor).
 
 health(jesse, 100).
 max_health(jesse, 100).
 % health(hiss_guard, 30) is asserted when service_weapon is picked up
 health(hiss_brute, 50).
+health(hiss_guard_b, 30).
 weapon_charge(jesse, 10).
 max_weapon_charge(jesse, 10).
 
@@ -126,6 +128,12 @@ connected(janitor_hall, atrium, east) :-
     has(jesse, service_weapon).
 
 connected(atrium, janitor_hall, west) :-
+    has(jesse, service_weapon).
+
+connected(atrium, containment_hall, east) :-
+    has(jesse, service_weapon).
+
+connected(containment_hall, atrium, west) :-
     has(jesse, service_weapon).
 
 connected(lobby, upper_hall, north) :-
@@ -184,6 +192,11 @@ description(atrium,
 "A vast circular chamber with high vaulted ceilings. Strange geometric patterns \
 cover the floor, seeming to shift and breathe with an otherworldly rhythm. \
 The air feels heavy with presence.").
+
+description(containment_hall,
+"A long reinforced corridor. Containment cells line both walls, most of them \
+hanging open and dark. The air smells of ozone and fear. A Hiss-infected guard \
+patrols the far end, twitching erratically.").
 
 description(upper_hall,
 "A long corridor. A Hiss‑infected guard twitches violently.").
@@ -486,6 +499,9 @@ skip_turn :-
     ( location(hiss_brute, Room), health(hiss_brute, HP), HP > 0
     -> normal_text("You hold your ground. The enemy seizes the moment..."),
        enemy_turn_brute
+    ;  location(hiss_guard_b, Room), health(hiss_guard_b, HP2), HP2 > 0
+    -> normal_text("You hold your ground. The enemy seizes the moment..."),
+       enemy_turn_guard_b
     ;  normal_text("You hold your ground. The enemy seizes the moment..."),
        enemy_turn
     ).
@@ -500,6 +516,12 @@ living_enemy_here(Room) :-
     health(hiss_guard, HP),
     HP > 0,
     has(jesse, service_weapon).  % only "real" if player can see/fight it
+
+living_enemy_here(Room) :-
+    location(hiss_guard_b, Room),
+    health(hiss_guard_b, HP),
+    HP > 0,
+    has(jesse, service_weapon).
 
 living_enemy_here(Room) :-
     location(hiss_brute, Room),
@@ -568,6 +590,7 @@ parse([talk, vendor], talk(vendor)).
 
 parse([attack], attack).
 parse([attack, hiss_guard], attack(hiss_guard)).
+parse([attack, hiss_guard_b], attack(hiss_guard_b)).
 parse([attack, hiss_brute], attack(hiss_brute)).
 
 parse([take, Item], take(Item)).
@@ -619,13 +642,16 @@ dispatch(attack) :-
     !,
     location(jesse, Room),
     ( living_enemy_here(Room)
-    -> ( location(hiss_brute, Room), health(hiss_brute, HP), HP > 0
+    -> ( location(hiss_brute, Room), health(hiss_brute, HP1), HP1 > 0
        -> combat(jesse, hiss_brute)
+       ;  location(hiss_guard_b, Room), health(hiss_guard_b, HP2), HP2 > 0
+       -> combat(jesse, hiss_guard_b)
        ;  combat(jesse, hiss_guard)
        )
     ;  normal_text("There's nothing to attack here.")
     ).
 dispatch(attack(hiss_guard)) :- !, combat(jesse, hiss_guard).
+dispatch(attack(hiss_guard_b)) :- !, combat(jesse, hiss_guard_b).
 dispatch(attack(hiss_brute)) :- !, combat(jesse, hiss_brute).
 dispatch(skip) :- !, skip_turn.
 dispatch(unlock(Item, Code)) :- !, unlock_item(Item, Code).
@@ -770,14 +796,23 @@ neighbor(Current, Cardinal, DisplayNext, Status) :-
     dir_equiv(Cardinal, ConnDir),
     ( connected(Current, Next, ConnDir) ->
         ( Next \= Current
-        -> DisplayNext = Next, Status = open
+        -> ( Next = lab77_locked
+           -> DisplayNext = lab77, Status = locked
+           ;  DisplayNext = Next, Status = open
+           )
         ;  ( clause(connected(Current, Alt, ConnDir), _), Alt \= Current
-           -> DisplayNext = Alt, Status = locked
+           -> ( Alt = lab77_locked
+              -> DisplayNext = lab77, Status = locked
+              ;  DisplayNext = Alt, Status = locked
+              )
            ;  fail
            )
         )
     ;  ( clause(connected(Current, Alt, ConnDir), _)
-       -> DisplayNext = Alt, Status = locked
+       -> ( Alt = lab77_locked
+          -> DisplayNext = lab77, Status = locked
+          ;  DisplayNext = Alt, Status = locked
+          )
        ;  fail
        )
     ).
@@ -884,6 +919,8 @@ list_occupants(Room) :-
 
 visible_npc(hiss_guard) :- has(jesse, service_weapon), !.
 visible_npc(hiss_guard) :- !, fail.
+visible_npc(hiss_guard_b) :- has(jesse, service_weapon), !.
+visible_npc(hiss_guard_b) :- !, fail.
 visible_npc(hiss_brute) :- has(jesse, service_weapon), !.
 visible_npc(hiss_brute) :- !, fail.
 visible_npc(_).
@@ -997,7 +1034,6 @@ unlock_item(Item, Code) :-
 restart_game :-
     retractall(game_over),
     retractall(health_kit_tip_shown),
-    % retract all dynamic state
     retractall(location(_, _)),
     retractall(health(_, _)),
     retractall(max_health(_, _)),
@@ -1007,18 +1043,17 @@ restart_game :-
     retractall(read_note(_, _)),
     retractall(outside_attempts(_)),
     retractall(object(_, _)),
-    
-    % restore initial state
     assertz(location(jesse, street)),
     assertz(location(ahti, janitor_hall)),
-    % hiss_guard spawns when service_weapon is picked up
     assertz(location(hiss_brute, atrium)),
+    assertz(location(hiss_guard_b, containment_hall)),
     assertz(location(vendor, food_vendor)),
     assertz(health(jesse, 100)),
     assertz(max_health(jesse, 100)),
     assertz(weapon_charge(jesse, 10)),
     assertz(max_weapon_charge(jesse, 10)),
     assertz(health(hiss_brute, 50)),
+    assertz(health(hiss_guard_b, 30)),
     assertz(outside_attempts(0)),
     assertz(object(keys, lobby)),
     assertz(object(service_weapon, directors_office)),

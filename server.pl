@@ -125,10 +125,12 @@ reset_game :-
     assertz(location(ahti, janitor_hall)),
     % hiss_guard spawns when service_weapon is picked up
     assertz(location(hiss_brute, atrium)),
+    assertz(location(hiss_guard_b, containment_hall)),
     assertz(location(vendor, food_vendor)),
     assertz(health(jesse, 100)),
     assertz(max_health(jesse, 100)),
     assertz(health(hiss_brute, 50)),
+    assertz(health(hiss_guard_b, 30)),
     assertz(weapon_charge(jesse, 10)),
     assertz(max_weapon_charge(jesse, 10)),
     assertz(outside_attempts(0)),
