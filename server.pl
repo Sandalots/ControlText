@@ -117,6 +117,7 @@ reset_game :-
     retractall(outside_attempts(_)),
     retractall(object(_, _)),
     retractall(game_over),
+    retractall(hiss_infected(_)),
     retractall(last_color(_)),
     retractall(last_buf_style(_)),
     assertz(last_color(default)),

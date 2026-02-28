@@ -19,7 +19,11 @@
 :- dynamic last_color/1.
 :- dynamic game_over/0.
 :- dynamic health_kit_tip_shown/0.
+:- dynamic hiss_infected/1.
+:- dynamic weapon_just_taken/0.
 :- discontiguous health/2.
+:- discontiguous combat/2.
+:- discontiguous visible_npc/1.
 :- use_module(library(pcre)).        % for re_replace/4
 :- use_module(library(ansi_term)).   % for colour output
 
@@ -87,6 +91,33 @@ note_text(Text) :-
     ansi_format([fg(red), italic], '~w~n', [Text]).
 
 :- endif.
+
+/* --- NPC Visibility --- */
+
+visible_npc(ahti).
+visible_npc(vendor).
+visible_npc(E) :-
+    is_hiss_enemy(E),
+    has(jesse, service_weapon).
+
+/* --- Enemy Announcement on Room Entry --- */
+
+announce_enemies(Room) :-
+    findall(EName, (
+        location(E, Room),
+        is_hiss_enemy(E),
+        has(jesse, service_weapon),
+        health(E, HP), HP > 0,
+        enemy_display_name(E, EName)
+    ), Names),
+    ( Names \= []
+    -> forall(member(N, Names), (
+           format(string(S), "Enemy spotted: ~w", [N]),
+           highlight_text(S)
+       )),
+       tip_text("Use 'attack' to fight!")
+    ; true
+    ).
 
 /* --- Initial State --- */
 
@@ -199,7 +230,8 @@ hanging open and dark. The air smells of ozone and fear. A Hiss-infected guard \
 patrols the far end, twitching erratically.").
 
 description(upper_hall,
-"A long corridor. A Hiss‑infected guard twitches violently.").
+"A long corridor leading deeper into the Bureau. The air hums with a faint \
+paranatural resonance. Doors line the walls, some hanging open, others sealed tight.").
 
 description(security_post,
 "A small security post. Monitors flicker with static. An overturned chair \
@@ -492,7 +524,7 @@ skip_turn :-
     -> highlight_text("Your Service Weapon charge is already at maximum!")
     ;  NewCharge is min(MaxCharge, OldCharge + 1),
        retract(weapon_charge(jesse, OldCharge)),
-       assert(weapon_charge(jesse, NewCharge)),
+       assertz(weapon_charge(jesse, NewCharge)),
        format(atom(ChargeMsg), "Weapon recharged: ~w -> ~w/~w", [OldCharge, NewCharge, MaxCharge]),
        highlight_text(ChargeMsg)
     ),
@@ -502,6 +534,10 @@ skip_turn :-
     ;  location(hiss_guard_b, Room), health(hiss_guard_b, HP2), HP2 > 0
     -> normal_text("You hold your ground. The enemy seizes the moment..."),
        enemy_turn_guard_b
+    ;  location(Enemy, Room), atom_concat(hiss_infection_, _, Enemy),
+       health(Enemy, EHP), EHP > 0
+    -> normal_text("You hold your ground. The enemy seizes the moment..."),
+       enemy_turn_infection(Enemy, Room)
     ;  normal_text("You hold your ground. The enemy seizes the moment..."),
        enemy_turn
     ).
@@ -526,6 +562,13 @@ living_enemy_here(Room) :-
 living_enemy_here(Room) :-
     location(hiss_brute, Room),
     health(hiss_brute, HP),
+    HP > 0,
+    has(jesse, service_weapon).
+
+living_enemy_here(Room) :-
+    location(Enemy, Room),
+    atom_concat(hiss_infection_, _, Enemy),
+    health(Enemy, HP),
     HP > 0,
     has(jesse, service_weapon).
 
@@ -633,7 +676,9 @@ parse([start, over], restart).
 
 dispatch(look) :- !, describe_here.
 dispatch(look_at(Obj)) :- !, look_at(Obj).
-dispatch(go(Dir)) :- !, move(jesse, Dir, Moved), ( Moved = moved -> describe_here ; true ).
+dispatch(go(Dir)) :- !,
+    move(jesse, Dir, Moved),
+    ( Moved = moved -> describe_here ; true ).
 dispatch(talk(ahti)) :- !, talk_to(ahti).
 dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
@@ -646,7 +691,12 @@ dispatch(attack) :-
        -> combat(jesse, hiss_brute)
        ;  location(hiss_guard_b, Room), health(hiss_guard_b, HP2), HP2 > 0
        -> combat(jesse, hiss_guard_b)
-       ;  combat(jesse, hiss_guard)
+       ;  location(hiss_guard, Room), health(hiss_guard, HP3), HP3 > 0
+       -> combat(jesse, hiss_guard)
+       ;  location(Enemy, Room), atom_concat(hiss_infection_, _, Enemy),
+          health(Enemy, EHP), EHP > 0
+       -> combat(jesse, Enemy)
+       ;  normal_text("There's nothing to attack here.")
        )
     ;  normal_text("There's nothing to attack here.")
     ).
@@ -753,7 +803,18 @@ move(jesse, _, blocked) :-
     location(jesse, Room),
     living_enemy_here(Room),
     !,
-    highlight_text("You can't leave — there's still an enemy here!").
+    highlight_text("You can't leave — there's still an enemy here!"),
+    findall(E-N, (
+        location(E, Room),
+        is_hiss_enemy(E),
+        has(jesse, service_weapon),
+        enemy_display_name(E, N)
+    ), Pairs),
+    forall(member(_-EName, Pairs), (
+        format(string(ES), "Enemy spotted: ~w", [EName]),
+        highlight_text(ES)
+    )),
+    tip_text("Defeat the enemy before moving on. Use 'attack'.").
 
 move(jesse, north, blocked) :-
     location(jesse, lobby),
@@ -778,7 +839,12 @@ move(Actor, Dir, moved) :-
     connected(Room, Next, Dir),
     !,
     retract(location(Actor, Room)),
-    assert(location(Actor, Next)).
+    assert(location(Actor, Next)),
+    ( Actor = jesse
+    -> infection_check(Next),
+       announce_enemies(Next)
+    ; true
+    ).
 
 move(_, _, blocked) :-
     normal_text("You can't go that way.").
@@ -884,6 +950,10 @@ show_map(Current) :-
         map_line("~w~w", [SPad, SLabel])
     ; true ),
 
+    map_text(""),
+    ( room_name(Current, RoomName) -> true ; RoomName = Current ),
+    format(atom(LocationMsg), "Jesse is at: ~w", [RoomName]),
+    map_text(LocationMsg),
     map_text("").
 
 describe_here :-
@@ -907,32 +977,187 @@ list_occupants(Room) :-
     ( Others = [] -> true
     ;   include(visible_npc, Others, FilteredOthers),
         ( FilteredOthers = [] -> true
-        ; format(string(S),"You see: ~w",[FilteredOthers]),
-          highlight_text(S),
-          ( member(ahti, FilteredOthers), has(jesse, service_weapon)
-          -> tip_text("Tip: perhaps you could 'talk ahti' while you're here."),
-             space_if_color_changed
-          ; member(vendor, FilteredOthers)
-          -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
-             space_if_color_changed
-          ; member(hiss_guard, FilteredOthers)
-          -> tip_text("Tip: use 'attack' to deal damage to the Hiss Guard!"),
-             space_if_color_changed
-          ; member(hiss_brute, FilteredOthers)
-          -> tip_text("Tip: use 'attack' to deal damage to the Hiss Brute!"),
-             space_if_color_changed
+        ;
+          % Split into enemies and friendly NPCs
+          include(is_hiss_enemy, FilteredOthers, Enemies),
+          exclude(is_hiss_enemy, FilteredOthers, Friendlies),
+          ( Enemies \= [] ->
+              forall(member(E, Enemies), (
+                  enemy_display_name(E, EName),
+                  format(string(ES), "Enemy spotted: ~w", [EName]),
+                  highlight_text(ES)
+              )),
+              tip_text("Tip: use 'attack' to fight the enemy!"),
+              space_if_color_changed
+          ; true
+          ),
+          ( Friendlies \= [] ->
+              format(string(S), "You see: ~w", [Friendlies]),
+              highlight_text(S),
+              ( member(ahti, Friendlies), has(jesse, service_weapon)
+              -> tip_text("Tip: perhaps you could 'talk ahti' while you're here."),
+                 space_if_color_changed
+              ; member(vendor, Friendlies)
+              -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
+                 space_if_color_changed
+              ; true
+              )
           ; true
           )
         )
     ).
 
-visible_npc(hiss_guard) :- has(jesse, service_weapon), !.
-visible_npc(hiss_guard) :- !, fail.
-visible_npc(hiss_guard_b) :- has(jesse, service_weapon), !.
-visible_npc(hiss_guard_b) :- !, fail.
-visible_npc(hiss_brute) :- has(jesse, service_weapon), !.
-visible_npc(hiss_brute) :- !, fail.
-visible_npc(_).
+is_hiss_enemy(hiss_guard).
+is_hiss_enemy(hiss_guard_b).
+is_hiss_enemy(hiss_brute).
+is_hiss_enemy(E) :- atom_concat(hiss_infection_, _, E).
+
+enemy_display_name(hiss_guard,   'Hiss Guard').
+enemy_display_name(hiss_guard_b, 'Hiss Guard').
+enemy_display_name(hiss_brute,   'Hiss Brute').
+enemy_display_name(E, Name) :-
+    atom_concat(hiss_infection_, _, E),
+    Name = 'Hiss (Infection)'.
+
+/* --- Hiss Infection System --- */
+
+infectable_room(lobby).
+infectable_room(atrium).
+infectable_room(containment_hall).
+infectable_room(janitor_hall).
+infectable_room(upper_hall).
+infectable_room(directors_office).
+infectable_room(security_post).
+infectable_room(records_room).
+infectable_room(lab77).
+infectable_room(toilets).
+infectable_room(food_vendor).
+infectable_room(secret_chamber).
+
+room_name(lobby,            'The Lobby').
+room_name(atrium,           'The Atrium').
+room_name(containment_hall, 'Containment Hall').
+room_name(janitor_hall,     "Janitor's Hall").
+room_name(directors_office, "Director's Office").
+room_name(security_post,    'Security Post').
+room_name(records_room,     'Records Room').
+room_name(lab77,            'Lab 77').
+room_name(toilets,          'The Toilets').
+room_name(food_vendor,      'Food Vendor').
+room_name(secret_chamber,   'Secret Chamber').
+room_name(Room,             Room).
+
+room_enemy_free(Room) :-
+    \+ (location(Enemy, Room),
+        Enemy \= jesse,
+        Enemy \= ahti,
+        Enemy \= vendor).
+
+next_hiss_id(Id) :-
+    aggregate_all(count, hiss_infected(_), N),
+    atomic_list_concat([hiss_infection_, N], Id).
+
+infect_room(Room) :-
+    \+ hiss_infected(Room),
+    assertz(hiss_infected(Room)),
+    next_hiss_id(Id),
+    assertz(location(Id, Room)),
+    assertz(health(Id, 30)),
+    room_name(Room, RoomName),
+    ( location(jesse, Room)
+    -> atomic_list_concat(['!! HISS INFECTION AT ', RoomName, ' — AN ENEMY HAS APPEARED HERE !!'], Alert),
+       highlight_text(Alert)
+    ;  atomic_list_concat(['[ALERT] Hiss infection detected at ', RoomName, '.'], Alert),
+       highlight_text(Alert)
+    ).
+
+maybe_true(Prob) :-
+    random(R),
+    R < Prob.
+
+maybe_infect(Room) :-
+    ( \+ hiss_infected(Room),
+      room_enemy_free(Room),
+      maybe_true(0.2)
+    -> infect_room(Room)
+    ; true
+    ).
+
+infection_check(Room) :-
+    ( weapon_just_taken
+    -> retract(weapon_just_taken)
+    ; has(jesse, service_weapon),
+      infectable_room(Room)
+    -> maybe_infect(Room)
+    ; true
+    ).
+
+on_hiss_defeated(Room) :-
+    ( hiss_infected(Room)
+    -> retract(hiss_infected(Room)),
+       assertz(object(health_kit, Room)),
+       room_name(Room, RoomName),
+       atomic_list_concat(['A health kit has appeared in ', RoomName, '!'], Msg),
+       tip_text(Msg)
+    ; true
+    ).
+
+/* --- Infection Combat --- */
+
+combat(jesse, Enemy) :-
+    atom_concat(hiss_infection_, _, Enemy),
+    location(jesse, Room),
+    location(Enemy, Room),
+    has(jesse, service_weapon),
+    health(Enemy, HP),
+    HP > 0,
+    !,
+    weapon_charge(jesse, Charge),
+    ( Charge =< 0
+    -> highlight_text("Your weapon is out of charge! Use 'skip' to recharge.")
+    ;  Dmg is 10,
+       NewHP is HP - Dmg,
+       retract(health(Enemy, HP)),
+       assertz(health(Enemy, NewHP)),
+       NewCharge is Charge - 1,
+       retract(weapon_charge(jesse, Charge)),
+       assertz(weapon_charge(jesse, NewCharge)),
+       format(atom(Msg), "You fire at the Hiss! Enemy health: ~w -> ~w", [HP, NewHP]),
+       normal_text(Msg),
+       enemy_turn_infection(Enemy, Room)
+    ).
+
+combat(jesse, Enemy) :-
+    atom_concat(hiss_infection_, _, Enemy),
+    normal_text("That enemy is already defeated."), !.
+
+enemy_turn_infection(Enemy, Room) :-
+    health(Enemy, HP),
+    ( HP =< 0
+    -> highlight_text("═══════════════════════════════════"),
+       highlight_text("The Hiss infection is purged!"),
+       highlight_text("═══════════════════════════════════"),
+       retract(location(Enemy, Room)),
+       max_weapon_charge(jesse, MaxCharge),
+       retract(weapon_charge(jesse, _)),
+       assertz(weapon_charge(jesse, MaxCharge)),
+       format(atom(RechargeMsg), "Service Weapon recharged to ~w/~w.", [MaxCharge, MaxCharge]),
+       highlight_text(RechargeMsg),
+       on_hiss_defeated(Room)
+    ;  normal_text("The Hiss infection lashes out!"),
+       health(jesse, JHP),
+       NewJHP is JHP - 20,
+       retract(health(jesse, JHP)),
+       assertz(health(jesse, NewJHP)),
+       max_health(jesse, MaxHP),
+       format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
+       highlight_text(HealthMsg),
+       weapon_charge(jesse, Charge),
+       max_weapon_charge(jesse, MaxCharge),
+       format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
+       highlight_text(ChargeMsg),
+       check_death
+    ).
 
 list_items(Room) :-
     findall(I, object(I, Room), Items),
@@ -1002,6 +1227,7 @@ take_item(Item) :-
       ( MatchObj = service_weapon
       -> assertz(location(hiss_guard, upper_hall)),
          assertz(health(hiss_guard, 30)),
+         assertz(weapon_just_taken),
          highlight_text("A distant screech echoes through the building...")
       ; true
       )
@@ -1043,6 +1269,8 @@ unlock_item(Item, Code) :-
 restart_game :-
     retractall(game_over),
     retractall(health_kit_tip_shown),
+    retractall(hiss_infected(_)),
+    retractall(weapon_just_taken),
     retractall(location(_, _)),
     retractall(health(_, _)),
     retractall(max_health(_, _)),
