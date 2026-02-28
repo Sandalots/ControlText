@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Control — Text Adventure</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0a;
+      color: #39ff14;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 15px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 12px;
+    }
+    #output {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .line { margin: 1px 0; line-height: 1.5; }
+    .normal    { color: #39ff14; }
+    .highlight { color: #ffd700; }
+    .map       { color: #00e5ff; }
+    .tip       { color: #ff66ff; font-weight: bold; }
+    .speak     { color: #ff4444; font-style: italic; }
+    .error     { color: #ff4444; }
+    .echo      { color: #888; }
+    #input-row {
+      display: flex;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #333;
+    }
+    #prompt { color: #39ff14; padding-top: 4px; user-select: none; }
+    #cmd {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #39ff14;
+      color: #39ff14;
+      font-family: inherit;
+      font-size: inherit;
+      outline: none;
+      padding: 2px 4px;
+    }
+    #send-btn {
+      background: #111;
+      border: 1px solid #39ff14;
+      color: #39ff14;
+      font-family: inherit;
+      font-size: inherit;
+      padding: 2px 12px;
+      cursor: pointer;
+    }
+    #send-btn:hover { background: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <div id="output"></div>
+  <div id="input-row">
+    <span id="prompt">&gt;</span>
+    <input id="cmd" type="text" autofocus autocomplete="off" placeholder="enter a command…" />
+    <button id="send-btn">Send</button>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+    const cmd    = document.getElementById('cmd');
+    const btn    = document.getElementById('send-btn');
+
+    function appendLines(lines) {
+      lines.forEach(l => {
+        const div = document.createElement('div');
+        div.className = 'line ' + (l.style || 'normal');
+        div.textContent = l.text;
+        output.appendChild(div);
+      });
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function echoInput(text) {
+      const div = document.createElement('div');
+      div.className = 'line echo';
+      div.textContent = '> ' + text;
+      output.appendChild(div);
+    }
+
+    async function sendCommand(input) {
+      if (!input.trim()) return;
+      echoInput(input);
+      cmd.value = '';
+      try {
+        const res = await fetch('/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input })
+        });
+        const data = await res.json();
+        appendLines(data.lines || []);
+      } catch (e) {
+        appendLines([{ text: 'Connection error.', style: 'error' }]);
+      }
+    }
+
+    async function startGame() {
+      try {
+        const res = await fetch('/start', { method: 'POST' });
+        const data = await res.json();
+        appendLines(data.lines || []);
+      } catch (e) {
+        appendLines([{ text: 'Could not connect to game server.', style: 'error' }]);
+      }
+    }
+
+    btn.addEventListener('click', () => sendCommand(cmd.value));
+    cmd.addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendCommand(cmd.value);
+    });
+
+    startGame();
+  </script>
+</body>
+</html>

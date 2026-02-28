@@ -1006,6 +1006,9 @@ restart_game :-
     writeln(""),
     start.
 
-% ensure game begins when invoked with `swipl game.pl`
+% Change the final line — only auto-start when loaded directly, not as a library
+% Replace the existing :- initialization line at the bottom with:
+:- if(\+ current_module(server)).
 :- initialization(start, main).
+:- endif.
 
