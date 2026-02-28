@@ -204,6 +204,8 @@ start :-
     writeln(""),
     highlight_text("Tip: try 'enter' to go inside and continue the story. You can also go east to visit the food vendor; if stuck there, go west back to the street entrance."),
     writeln(""),
+    highlight_text("Tip: try 'help' to list all available commands."),
+    writeln(""),
     % now print the description for the starting room
     description(Room, Desc),
     normal_text(Desc),          % description also coloured
@@ -279,19 +281,23 @@ dispatch(help)                :- !, show_help.
 dispatch(Cmd) :-
     format("I don't know how to handle: ~w~n", [Cmd]).
 
-
 /* --- Tutorial Text --- */
 show_help :-
-    writeln("=== COMMANDS ==="),
-    writeln("Movement: go north | go south | go east | go west"),
-    writeln("Look:     look | look at <thing>"),
-    writeln("Map:      map"),
-    writeln("Items:    take <item>"),
-    writeln("Talk:     talk <npc>"),
-    writeln("Combat:   attack <enemy>"),
-    writeln("Quit:     quit"),
-    writeln("Tip:      from food_vendor, go west to return to the street"),
-    writeln("================").
+    map_text("=== COMMANDS ==="),
+    normal_text("Movement: go north | go south | go east | go west | enter"),
+    normal_text("Look:     look | look at <thing>"),
+    normal_text("Map:      map | show map"),
+    normal_text("Read:     read | read <note_name>"),
+    normal_text("Items:    take <item> | pick up <item>"),
+    normal_text("Talk:     talk <npc>"),
+    normal_text("Combat:   attack <enemy>"),
+    normal_text("Help:     help"),
+    normal_text("Quit:     quit"),
+    map_text("----------------"),
+    highlight_text("OBJECTIVE: Find your estranged brother in the mysterious Oldest House."),
+    map_text("================").
+
+% ...existing code...
 
 /* Funny Text */
 funny_outside_message :-
