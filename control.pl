@@ -361,6 +361,24 @@ note(directors_office, memo_to_staff,
 Please disregard the sounds coming from the walls. This is normal. \
 Everything is normal. —Director'").
 
+note(upper_hall, evacuation_notice,
+    "A laminated evacuation notice, corners curling: 'In the event of a paranatural \
+incursion, proceed calmly to the nearest exit. Do not run. Do not look back. \
+Do not describe what you have seen to non-Bureau personnel.'").
+
+note(upper_hall, scratched_wall,
+    "Words scratched into the wall at eye level, jagged and desperate: \
+'IT FOLLOWS THE SOUND. STAY QUIET.'").
+
+note(upper_hall, torn_memo,
+    "A torn internal memo: '...all personnel above clearance level 4 are advised \
+to avoid the upper corridor after 22:00. Unauthorised resonance has been detected \
+near the Director's office. This is not a drill. —Security Division'").
+
+note(upper_hall, sticky_note,
+    "A sticky note on a door handle: 'Keys still missing. Do NOT prop this door open. \
+Last time cost us three agents and a filing cabinet. —M'").
+
 % when you enter or start, tell player if there are unread notes
 list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
