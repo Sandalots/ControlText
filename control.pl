@@ -470,11 +470,24 @@ inner_thought(lobby, brother,
 you go — like the building is confirming it, room by room. \
 He always did get drawn to the wrong things.").
 
-inner_thought(directors_office, director,
-    "He chose this. Or the House chose it for him. \
-You're not sure there's a difference anymore. \
-The weapon is still here. Still warm. \
-Whatever he faced at the end, it wasn't nothing.").
+inner_thought(lobby, layout,
+    "This place makes no sense. \
+From the outside it looked like a normal government building — maybe ten, twelve floors. \
+But in here the geometry is wrong. Corridors that shouldn't fit. Rooms that open onto other rooms \
+with no space between them. \
+You've been in two hallways and already you've lost your sense of direction. \
+The Bureau calls it the Oldest House. \
+You're starting to understand why. \
+It doesn't feel built. It feels grown.").
+
+inner_thought(lobby, exploration,
+    "Dylan could be anywhere in here. \
+That's the reality you have to sit with. \
+This building doesn't follow normal rules — rooms shift, corridors loop, \
+whole wings show up where they shouldn't be. \
+You're going to have to search every corridor. Every office. Every locked door you can find a key for. \
+Leave no room unchecked. \
+He's here. And you're not leaving until you find him.").
 
 inner_thought(atrium, patterns,
     "The floor is doing something. Moving, almost — or just on the edge of moving. \
