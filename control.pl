@@ -16,6 +16,7 @@
 :- dynamic object/2.
 :- dynamic weapon_charge/2.
 :- dynamic max_weapon_charge/2.
+:- dynamic last_color/1.        % must be dynamic for web mode retractall
 :- discontiguous health/2.
 :- use_module(library(pcre)).        % for re_replace/4
 :- use_module(library(ansi_term)).   % for colour output
@@ -32,74 +33,55 @@ clean_token_smart(In, Out) :-
 clean_token(In, Out) :-
     re_replace('(^[^a-z]+|[^a-z]+$)'/i, '', In, Out).
 
-% Track the last color used
-:- dynamic last_color/1.
+% Output predicates — only defined when NOT loaded by server.pl
+:- if(\+ current_module(server)).
+
 last_color(default).
 
-% colourised output helpers with automatic newline on color change
 color_ln(Color, Text) :-
     last_color(LastColor),
-    ( LastColor \= Color, LastColor \= default
-    -> writeln("")  % Add newline if color changed
-    ; true
-    ),
+    ( LastColor \= Color, LastColor \= default -> writeln("") ; true ),
     ansi_format([fg(Color)], '~w~n', [Text]),
     retract(last_color(LastColor)),
     assert(last_color(Color)).
 
-% Dynamic spacing - only add newline if color changed
 space_if_color_changed :-
     last_color(LastColor),
-    ( LastColor \= default
-    -> writeln("")
-    ; true
-    ).
+    ( LastColor \= default -> writeln("") ; true ).
 
 normal_text(Text) :-
     last_color(LastColor),
-    ( LastColor \= green, LastColor \= default
-    -> writeln("")
-    ; true
-    ),
+    ( LastColor \= green, LastColor \= default -> writeln("") ; true ),
     ansi_format([fg(green)], '~w~n', [Text]),
     retract(last_color(LastColor)),
     assert(last_color(green)).
 
 highlight_text(Text) :-
     last_color(LastColor),
-    ( LastColor \= yellow, LastColor \= default
-    -> writeln("")
-    ; true
-    ),
+    ( LastColor \= yellow, LastColor \= default -> writeln("") ; true ),
     ansi_format([fg(yellow)], '~w~n', [Text]),
     retract(last_color(LastColor)),
     assert(last_color(yellow)).
 
 map_text(Text) :-
     last_color(LastColor),
-    ( LastColor \= cyan, LastColor \= default
-    -> writeln("")
-    ; true
-    ),
+    ( LastColor \= cyan, LastColor \= default -> writeln("") ; true ),
     ansi_format([fg(cyan)], '~w~n', [Text]),
     retract(last_color(LastColor)),
     assert(last_color(cyan)).
 
 tip_text(Text) :-
     last_color(LastColor),
-    ( LastColor \= magenta, LastColor \= default
-    -> writeln("")
-    ; true
-    ),
+    ( LastColor \= magenta, LastColor \= default -> writeln("") ; true ),
     ansi_format([fg(magenta), bold], '~w~n', [Text]),
     retract(last_color(LastColor)),
     assert(last_color(magenta)).
 
-% speak(Character,Text) – choose a colour for the speaker and print in
-% italic.  previously used green/yellow; switch to red.
 speak(ahti, Text)   :- ansi_format([fg(red), italic], '~w~n', [Text]).
 speak(vendor, Text) :- ansi_format([fg(red), italic], '~w~n', [Text]).
-speak(_, Text)      :- normal_text(Text).   % fallback
+speak(_, Text)      :- normal_text(Text).
+
+:- endif.
 
 /* --- Initial State --- */
 
@@ -328,42 +310,18 @@ list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
     ( Unread = [] -> true
     ; atomic_list_concat(Unread, ', ', IdStr),
-      last_color(LastColor),
-      ( LastColor \= yellow, LastColor \= default
-      -> writeln("")
-      ; true
-      ),
-      ansi_format([fg(yellow)], "Unread notes here: ", []),
-      ansi_format([fg(red), italic], "~w", [IdStr]),
-      ansi_format([fg(yellow)], ". Use ", []),
-      ansi_format([fg(cyan), italic], "'read <name>'", []),
-      ansi_format([fg(yellow)], " to examine one.~n", []),
-      retract(last_color(LastColor)),
-      assert(last_color(yellow))
+      atomic_list_concat(["Unread notes here: ", IdStr, ". Use 'read <name>' to examine one."], Msg),
+      highlight_text(Msg)
     ).
 
 % read all notes in current location, mark them as read
 read_notes(all) :-
     location(jesse, Room),
     findall(Id-Text, (note(Room,Id,Text), \+ read_note(Room,Id)), Pairs),
-    ( Pairs = [] ->
-        last_color(LastColor),
-        ( LastColor \= red, LastColor \= default
-        -> writeln("")
-        ; true
-        ),
-        ansi_format([fg(red)], "There's nothing to read here.~n", []),
-        retract(last_color(LastColor)),
-        assert(last_color(red))
+    ( Pairs = []
+    -> color_ln(red, "There's nothing to read here.")
     ; forall(member(Id-Text, Pairs),
-             ( last_color(LastColor),
-               ( LastColor \= red, LastColor \= default
-               -> writeln("")
-               ; true
-               ),
-               ansi_format([fg(red)], "~w~n", [Text]),
-               retract(last_color(LastColor)),
-               assert(last_color(red)),
+             ( color_ln(red, Text),
                assertz(read_note(Room,Id))
              ))
     ).
@@ -371,34 +329,13 @@ read_notes(all) :-
 % read a single named note
 read_notes(Name) :-
     location(jesse, Room),
-    ( note(Room, Name, Text) ->
-        ( read_note(Room, Name) ->
-            last_color(LastColor),
-            ( LastColor \= red, LastColor \= default
-            -> writeln("")
-            ; true
-            ),
-            ansi_format([fg(red)], "You've already read that.~n", []),
-            retract(last_color(LastColor)),
-            assert(last_color(red))
-        ; last_color(LastColor),
-          ( LastColor \= red, LastColor \= default
-          -> writeln("")
-          ; true
-          ),
-          ansi_format([fg(red)], "~w~n", [Text]),
-          retract(last_color(LastColor)),
-          assert(last_color(red)),
+    ( note(Room, Name, Text)
+    -> ( read_note(Room, Name)
+       -> color_ln(red, "You've already read that.")
+       ;  color_ln(red, Text),
           assertz(read_note(Room, Name))
-        )
-    ; last_color(LastColor),
-      ( LastColor \= red, LastColor \= default
-      -> writeln("")
-      ; true
-      ),
-      ansi_format([fg(red)], "No such note here.~n", []),
-      retract(last_color(LastColor)),
-      assert(last_color(red))
+       )
+    ;  color_ln(red, "No such note here.")
     ).
 
 /* --- Dialogue --- */
@@ -417,46 +354,17 @@ talk_to(vendor) :-
     normal_text("He laughs maniacally and jots something down on a napkin."), !.
 
 talk_to(_) :-
-    writeln("There's no one to talk to.").
+    normal_text("There's no one to talk to.").
 
 /* --- Combat --- */
 
 combat(jesse, hiss_guard) :-
     location(jesse, upper_hall),
-    has(jesse, service_weapon),
-    weapon_charge(jesse, Charge),
-    Charge > 0,
-    health(hiss_guard, HP),
-    HP > 0,
-    normal_text("You fire the Service Weapon."),
-    NewHP is HP - 12,
-    retract(health(hiss_guard, HP)),
-    assert(health(hiss_guard, NewHP)),
-    NewCharge is Charge - 1,
-    retract(weapon_charge(jesse, Charge)),
-    assert(weapon_charge(jesse, NewCharge)),
-    max_weapon_charge(jesse, MaxCharge),
-    format(atom(HPMsg), "Hiss Guard HP: ~w/30", [NewHP]),
-    format(atom(ChargeMsg), "Charge: ~w/~w", [NewCharge, MaxCharge]),
-    highlight_text(HPMsg),
-    highlight_text(ChargeMsg),
-    enemy_turn, !.
-
-combat(jesse, hiss_guard) :-
-    location(jesse, upper_hall),
-    has(jesse, service_weapon),
-    weapon_charge(jesse, Charge),
-    Charge =:= 0,
-    normal_text("You pull the trigger, but the weapon is out of charge!"),
-    tip_text("Use 'skip' or 'wait' to let the enemy attack and recharge your weapon."), !.
-
-combat(jesse, hiss_guard) :-
-    location(jesse, upper_hall),
     \+ has(jesse, service_weapon),
-    writeln("You reach for a weapon... but you don't have the Service Weapon yet."), !.
+    normal_text("You reach for a weapon... but you don't have the Service Weapon yet."), !.
 
 combat(_, hiss_guard) :-
-    writeln("There's nothing to attack here."), !.
+    normal_text("There's nothing to attack here."), !.
 
 /* --- Enemy Turn --- */
 
@@ -477,29 +385,7 @@ enemy_turn :-
     ).
 
 skip_turn :-
-    location(jesse, upper_hall),
-    health(hiss_guard, HP),
-    HP > 0,
-    normal_text("You take a defensive stance and let the Hiss Guard attack."),
-    health(jesse, JHP),
-    NewJHP is JHP - 8,
-    retract(health(jesse, JHP)),
-    assert(health(jesse, NewJHP)),
-    format(atom(StrikeMsg), "The Hiss Guard strikes! Your Health: ~w", [NewJHP]),
-    highlight_text(StrikeMsg),
-    weapon_charge(jesse, Charge),
-    max_weapon_charge(jesse, MaxCharge),
-    ( Charge < MaxCharge
-    -> NewCharge is Charge + 1,
-       retract(weapon_charge(jesse, Charge)),
-       assert(weapon_charge(jesse, NewCharge)),
-       format(atom(RechargeMsg), "Weapon recharges! Charge: ~w/~w", [NewCharge, MaxCharge]),
-       highlight_text(RechargeMsg)
-    ; true
-    ), !.
-
-skip_turn :-
-    writeln("You can only skip your turn during combat."), !.
+    normal_text("You can only skip your turn during combat."), !.
 
 /* --- Enemy Helpers --- */
 
@@ -614,7 +500,7 @@ dispatch(read(Name)) :- !, read_notes(Name).
 dispatch(health) :- !, show_health.
 dispatch(charge) :- !, show_charge.
 dispatch(map) :- !, location(jesse, Room), show_map(Room).
-dispatch(quit) :- !, writeln("You step back from the House.").
+dispatch(quit) :- !, normal_text("You step back from the House.").
 dispatch(help) :- !, show_help.
 
 dispatch(Cmd) :- format("I don't know how to handle: ~w~n", [Cmd]).
@@ -646,13 +532,15 @@ show_health :-
     max_health(jesse, MaxHP),
     weapon_charge(jesse, Charge),
     max_weapon_charge(jesse, MaxCharge),
-    format("Current Health: ~w/~w | Weapon Charge: ~w/~w~n", [HP, MaxHP, Charge, MaxCharge]).
+    format(atom(Msg), "Current Health: ~w/~w | Weapon Charge: ~w/~w", [HP, MaxHP, Charge, MaxCharge]),
+    highlight_text(Msg).
 
 show_charge :-
     ( has(jesse, service_weapon)
     -> weapon_charge(jesse, Charge),
        max_weapon_charge(jesse, MaxCharge),
-       format("Service Weapon Charge: ~w/~w~n", [Charge, MaxCharge])
+       format(atom(Msg), "Service Weapon Charge: ~w/~w", [Charge, MaxCharge]),
+       highlight_text(Msg)
     ; highlight_text("You need to pick up the Service Weapon first.")
     ).
 
@@ -665,23 +553,23 @@ funny_outside_message :-
     outside_message(N1).
 
 outside_message(1) :-
-    writeln("You take a few steps away… then stop. Something feels wrong."),
-    writeln("The building hums louder, like it's watching you.").
+    normal_text("You take a few steps away… then stop. Something feels wrong."),
+    normal_text("The building hums louder, like it's watching you.").
 
 outside_message(2) :-
-    writeln("You try to walk off, but your feet feel heavy."),
-    writeln("Almost like the building is disappointed in you.").
+    normal_text("You try to walk off, but your feet feel heavy."),
+    normal_text("Almost like the building is disappointed in you.").
 
 outside_message(3) :-
-    writeln("You turn around again. The Bureau is still there."),
-    writeln("It feels… expectant. Maybe go inside?").
+    normal_text("You turn around again. The Bureau is still there."),
+    normal_text("It feels… expectant. Maybe go inside?").
 
 outside_message(4) :-
-    writeln("You walk in a circle. The street loops."),
-    writeln("Okay, the House is definitely messing with you now.").
+    normal_text("You walk in a circle. The street loops."),
+    normal_text("Okay, the House is definitely messing with you now.").
 
 outside_message(_) :-
-    writeln("You cannot escape the Oldest House. Just go inside.").
+    normal_text("You cannot escape the Oldest House. Just go inside.").
 
 :- dynamic outside_attempts/1.
 outside_attempts(0).
@@ -726,7 +614,7 @@ move(Actor, Dir, moved) :-
     assert(location(Actor, Next)).
 
 move(_, _, blocked) :-
-    writeln("You can't go that way.").
+    normal_text("You can't go that way.").
 
 /* --- Descriptions --- */
 
@@ -866,19 +754,9 @@ visible_npc(_).
 list_items(Room) :-
     findall(I, object(I, Room), Items),
     ( Items = [] -> true
-    ; last_color(LastColor),
-      ( LastColor \= yellow, LastColor \= default
-      -> writeln("")
-      ; true
-      ),
-      atomic_list_concat(Items, ', ', ItemStr),
-      ansi_format([fg(yellow)], "Items here: ", []),
-      ansi_format([fg(red), italic], "~w", [ItemStr]),
-      ansi_format([fg(yellow)], ". Use ", []),
-      ansi_format([fg(cyan), italic], "'take <item>'", []),
-      ansi_format([fg(yellow)], " to pick something up.~n", []),
-      retract(last_color(LastColor)),
-      assert(last_color(yellow))
+    ; atomic_list_concat(Items, ', ', ItemStr),
+      atomic_list_concat(["Items here: ", ItemStr, ". Use 'take <item>' to pick something up."], Msg),
+      highlight_text(Msg)
     ).
 
 take_item(Item) :-
@@ -904,8 +782,8 @@ take_item(Item) :-
        retract(health(jesse, HP)),
        assert(health(jesse, NewHP)),
        assertz(has(jesse, MatchObj)),
-       highlight_text("The health upgrade glows and merges with you!"),
-       format("Max health increased from ~w to ~w/~w~n", [MaxHP, NewHP, NewMaxHP])
+       format(atom(M), "Max health increased from ~w to ~w/~w", [MaxHP, NewHP, NewMaxHP]),
+       normal_text(M)
     ; MatchObj = charge_upgrade
     -> max_weapon_charge(jesse, MaxCharge),
        retract(object(MatchObj, Room)),
@@ -917,8 +795,8 @@ take_item(Item) :-
        retract(weapon_charge(jesse, Charge)),
        assert(weapon_charge(jesse, NewCharge)),
        assertz(has(jesse, MatchObj)),
-       highlight_text("The charge upgrade pulses with energy and merges with your weapon!"),
-       format("Max weapon charge increased from ~w to ~w/~w~n", [MaxCharge, NewCharge, NewMaxCharge])
+       format(atom(M), "Max weapon charge increased from ~w to ~w/~w", [MaxCharge, NewCharge, NewMaxCharge]),
+       normal_text(M)
     ; MatchObj = health_kit
     -> health(jesse, HP),
        max_health(jesse, MaxHP),
@@ -928,19 +806,22 @@ take_item(Item) :-
        ; retract(health(jesse, HP)),
          assert(health(jesse, MaxHP)),
          assertz(has(jesse, MatchObj)),
-         highlight_text("You use the health kit and restore yourself to full health!"),
-         format("Health restored to ~w/~w~n", [MaxHP, MaxHP])
+         format(atom(M), "Health restored to ~w/~w", [MaxHP, MaxHP]),
+         normal_text(M)
        )
     ; retract(object(MatchObj, Room)),
       assertz(has(jesse, MatchObj)),
-      format("You take the ~w.~n", [MatchObj])
+      format(atom(M), "You take the ~w.", [MatchObj]),
+      normal_text(M)
     ).
 
 take_item(Item) :-
-    format("There's no ~w here to take.~n", [Item]).
+    format(atom(Msg), "There's no ~w here to take.", [Item]),
+    normal_text(Msg).
 
 look_at(Obj) :-
-    format("You examine the ~w closely, but see nothing special.~n", [Obj]).
+    format(atom(Msg), "You examine the ~w closely, but see nothing special.", [Obj]),
+    normal_text(Msg).
 
 unlock_item(Item, Code) :-
     atom_string(Item, ItemStr),
@@ -1003,8 +884,7 @@ restart_game :-
     
     % restart game
     normal_text("Game restarted!"),
-    writeln(""),
-    start.
+    init_game_output.   % web-safe: no game_loop call
 
 % Change the final line — only auto-start when loaded directly, not as a library
 % Replace the existing :- initialization line at the bottom with:

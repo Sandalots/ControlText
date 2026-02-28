@@ -1,37 +1,59 @@
+:- module(server, []).
+
 :- use_module(library(http/thread_httpd)).
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_json)).
 :- use_module(library(http/http_files)).
-:- use_module(library(http/http_parameters)).
 
+/* --- Output buffer --- */
+:- dynamic output_buffer/1.
+output_buffer([]).
+
+buf_add(Style, Text) :-
+    retract(output_buffer(Buf)),
+    assertz(output_buffer([_{text:Text, style:Style}|Buf])).
+
+buf_flush(Lines) :-
+    retract(output_buffer(Buf)),
+    assertz(output_buffer([])),
+    reverse(Buf, Lines).
+
+/* --- Output predicates (web versions) --- */
+:- dynamic last_color/1.
+last_color(default).
+
+normal_text(Text)    :- buf_add(normal, Text).
+highlight_text(Text) :- buf_add(highlight, Text).
+map_text(Text)       :- buf_add(map, Text).
+tip_text(Text)       :- buf_add(tip, Text).
+color_ln(_, Text)    :- buf_add(normal, Text).
+space_if_color_changed.
+speak(_, Text)       :- buf_add(speak, Text).
+
+% Catch stray writeln/1 calls
+writeln(Text) :-
+    term_to_atom(Text, A),
+    atom_string(A, S),
+    buf_add(normal, S).
+
+/* --- Load game AFTER output overrides --- */
 :- [control].
 
 /* --- Routes --- */
 :- http_handler(root(.),            http_redirect(moved, '/index.html'), []).
-:- http_handler(root('index.html'), serve_index,    []).
-:- http_handler(root(start),        handle_start,   [method(post)]).
-:- http_handler(root(command),      handle_command, [method(post)]).
+:- http_handler(root('index.html'), serve_index,   []).
+:- http_handler(root(start),        handle_start,  [method(post)]).
+:- http_handler(root(command),      handle_command,[method(post)]).
 
 serve_index(Request) :-
     http_reply_file('index.html', [], Request).
-
-/* --- Capture output as JSON lines --- */
-
-strip_ansi(In, Out) :-
-    re_replace("\u001b\\[[0-9;]*m"/g, "", In, Out).
-
-capture_output(Goal, JsonLines) :-
-    with_output_to(string(Raw), Goal),
-    strip_ansi(Raw, Clean),
-    split_string(Clean, "\n", "", Lines),
-    include([L]>>(L \= ""), Lines, NonEmpty),
-    maplist([L, json([text=L])]>>true, NonEmpty, JsonLines).
 
 /* --- Handlers --- */
 
 handle_start(_Request) :-
     reset_game,
-    capture_output(init_game_output, Lines),
+    init_game_output,
+    buf_flush(Lines),
     reply_json_dict(_{lines: Lines, ok: true}).
 
 handle_command(Request) :-
@@ -41,13 +63,17 @@ handle_command(Request) :-
     split_string(Lower, " ", " \t", Words0),
     maplist(clean_token_smart, Words0, Words),
     maplist(atom_string, Tokens, Words),
-    ( parse(Tokens, Command)
-    -> capture_output(dispatch(Command), Lines)
-    ;  Lines = [json([text="I don't understand."])]
+    ( Tokens \= [''] ->
+        ( parse(Tokens, Command)
+        -> dispatch(Command)
+        ;  buf_add(error, "I don't understand.")
+        )
+    ; true
     ),
+    buf_flush(Lines),
     reply_json_dict(_{lines: Lines, ok: true}).
 
-/* --- Game init for web (no game_loop) --- */
+/* --- Game init for web --- */
 
 init_game_output :-
     location(jesse, Room),
@@ -100,5 +126,5 @@ reset_game :-
     ( reset_game,
       http_server(http_dispatch, [port(8081)]),
       format("Server running at http://localhost:8081/~n"),
-      thread_get_message(stop)   % block forever — keeps the server alive
+      thread_get_message(stop)
     ), main).

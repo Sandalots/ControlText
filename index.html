@@ -20,22 +20,25 @@
       flex: 1;
       overflow-y: auto;
       padding-bottom: 8px;
-      white-space: pre-wrap;
-      word-break: break-word;
     }
-    .line { margin: 1px 0; line-height: 1.5; }
+    .line {
+      white-space: pre;
+      line-height: 1.6;
+      min-height: 1.6em;
+    }
     .normal    { color: #39ff14; }
     .highlight { color: #ffd700; }
-    .map       { color: #00e5ff; }
+    .map       { color: #00e5ff; font-family: 'Courier New', Courier, monospace; }
     .tip       { color: #ff66ff; font-weight: bold; }
     .speak     { color: #ff4444; font-style: italic; }
     .error     { color: #ff4444; }
-    .echo      { color: #888; }
+    .echo      { color: #555; }
     #input-row {
       display: flex;
       gap: 8px;
       padding-top: 8px;
       border-top: 1px solid #333;
+      margin-top: 4px;
     }
     #prompt { color: #39ff14; padding-top: 4px; user-select: none; }
     #cmd {
@@ -74,11 +77,16 @@
     const cmd    = document.getElementById('cmd');
     const btn    = document.getElementById('send-btn');
 
+    // Strip any residual ANSI escape codes
+    function stripAnsi(str) {
+      return str.replace(/\x1b\[[0-9;]*m/g, '');
+    }
+
     function appendLines(lines) {
       lines.forEach(l => {
         const div = document.createElement('div');
         div.className = 'line ' + (l.style || 'normal');
-        div.textContent = l.text;
+        div.textContent = stripAnsi(l.text || '');
         output.appendChild(div);
       });
       output.scrollTop = output.scrollHeight;
