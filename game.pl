@@ -28,6 +28,12 @@ normal_text(Text)    :- color_ln(green,  Text).
 highlight_text(Text) :- color_ln(yellow, Text).
 map_text(Text)       :- color_ln(cyan,   Text).
 
+% speak(Character,Text) – choose a colour for the speaker and print in
+% italic.  previously used green/yellow; switch to red.
+speak(ahti, Text)   :- ansi_format([fg(red), italic], '~w~n', [Text]).
+speak(vendor, Text) :- ansi_format([fg(red), italic], '~w~n', [Text]).
+speak(_, Text)      :- normal_text(Text).   % fallback
+
 /* --- Initial State --- */
 
 location(jesse, street).
@@ -138,14 +144,15 @@ read_notes(Name) :-
 talk_to(ahti) :-
     location(jesse, janitor_hall),
     (   has(jesse, keys)
-    ->  writeln("'Good. Keys open many doors,' Ahti says with a grin.")
-    ;   writeln("'Lost? Keys are in the lobby,' Ahti says, pointing back.")
+    ->  speak(ahti, "'Good. Keys open many doors,' Ahti says with a grin.")
+    ;   speak(ahti, "'Lost? Keys are in the lobby,' Ahti says, pointing back.")
     ), !.
 
 talk_to(vendor) :-
     location(jesse, food_vendor),
-    writeln("'Get your hyperreal hot‑dogs!  Two for one if you say the word \"bureau\"!'"),
-    writeln("He laughs maniacally and jots something down on a napkin."), !.
+    speak(vendor,
+          "'Get your hyperreal hot‑dogs!  Two for one if you say the word \"bureau\"!'"),
+    normal_text("He laughs maniacally and jots something down on a napkin."), !.
 
 talk_to(_) :-
     writeln("There's no one to talk to.").
@@ -229,10 +236,9 @@ parse([walk, Dir], go(Dir)).
 parse([look], look).
 parse([look, at, Obj], look_at(Obj)).
 
-parse([take, Obj], take(Obj)).
-parse([pick, up, Obj], take(Obj)).
-
 parse([talk, ahti], talk(ahti)).
+parse([talk, vendor], talk(vendor)).               % <--- new
+
 parse([attack, hiss_guard], attack(hiss_guard)).
 
 parse([quit], quit).
@@ -256,6 +262,7 @@ dispatch(look)                :- !, describe_here.
 dispatch(look_at(Obj))        :- !, look_at(Obj).
 dispatch(go(Dir))             :- !, move(jesse, Dir).
 dispatch(talk(ahti))          :- !, talk_to(ahti).
+dispatch(talk(vendor))        :- !, talk_to(vendor).        % <--- new
 dispatch(take(Obj))           :- !, take_item(Obj).
 dispatch(attack(hiss_guard))  :- !, combat(jesse, hiss_guard).
 dispatch(read(Name))          :- !, read_notes(Name).
