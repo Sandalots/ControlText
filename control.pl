@@ -406,6 +406,11 @@ enemy_turn :-
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Guard collapses into silence."),
        highlight_text("═══════════════════════════════════"),
+       max_weapon_charge(jesse, MaxCharge),
+       retract(weapon_charge(jesse, _)),
+       assert(weapon_charge(jesse, MaxCharge)),
+       format(atom(RechargeMsg), "Service Weapon recharged to ~w/~w.", [MaxCharge, MaxCharge]),
+       highlight_text(RechargeMsg),
        ( health_kit_tip_shown -> true
        ; tip_text("Tip: took some damage? Look for health_kit items in rooms to restore your health."),
          assertz(health_kit_tip_shown)
@@ -418,6 +423,10 @@ enemy_turn :-
        max_health(jesse, MaxHP),
        format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
        highlight_text(HealthMsg),
+       weapon_charge(jesse, Charge),
+       max_weapon_charge(jesse, MaxCharge),
+       format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
+       highlight_text(ChargeMsg),
        check_death
     ).
 
@@ -426,7 +435,12 @@ enemy_turn_brute :-
     ( HP =< 0
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Brute collapses into silence."),
-       highlight_text("═══════════════════════════════════")
+       highlight_text("═══════════════════════════════════"),
+       max_weapon_charge(jesse, MaxCharge),
+       retract(weapon_charge(jesse, _)),
+       assert(weapon_charge(jesse, MaxCharge)),
+       format(atom(RechargeMsg), "Service Weapon recharged to ~w/~w.", [MaxCharge, MaxCharge]),
+       highlight_text(RechargeMsg)
     ;  normal_text("The Hiss Brute charges at you!"),
        health(jesse, JHP),
        NewJHP is JHP - 33,
@@ -435,6 +449,10 @@ enemy_turn_brute :-
        max_health(jesse, MaxHP),
        format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
        highlight_text(HealthMsg),
+       weapon_charge(jesse, Charge),
+       max_weapon_charge(jesse, MaxCharge),
+       format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
+       highlight_text(ChargeMsg),
        check_death
     ).
 
@@ -455,6 +473,16 @@ skip_turn :-
     location(jesse, Room),
     living_enemy_here(Room),
     !,
+    weapon_charge(jesse, OldCharge),
+    max_weapon_charge(jesse, MaxCharge),
+    ( OldCharge >= MaxCharge
+    -> highlight_text("Your Service Weapon charge is already at maximum!")
+    ;  NewCharge is min(MaxCharge, OldCharge + 1),
+       retract(weapon_charge(jesse, OldCharge)),
+       assert(weapon_charge(jesse, NewCharge)),
+       format(atom(ChargeMsg), "Weapon recharged: ~w -> ~w/~w", [OldCharge, NewCharge, MaxCharge]),
+       highlight_text(ChargeMsg)
+    ),
     ( location(hiss_brute, Room), health(hiss_brute, HP), HP > 0
     -> normal_text("You hold your ground. The enemy seizes the moment..."),
        enemy_turn_brute
@@ -545,6 +573,10 @@ parse([attack, hiss_brute], attack(hiss_brute)).
 parse([take, Item], take(Item)).
 parse([pick, up, Item], take(Item)).
 
+parse([inventory], inventory).
+parse([inv], inventory).
+parse([i], inventory).
+
 parse([quit], quit).
 parse([help], help).
 parse([health], health).
@@ -582,6 +614,7 @@ dispatch(go(Dir)) :- !, move(jesse, Dir, Moved), ( Moved = moved -> describe_her
 dispatch(talk(ahti)) :- !, talk_to(ahti).
 dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
+dispatch(inventory) :- !, show_inventory.
 dispatch(attack) :-
     !,
     location(jesse, Room),
