@@ -22,6 +22,7 @@
 :- dynamic attack_tip_shown/0.
 :- dynamic hiss_infected/1.
 :- dynamic weapon_just_taken/0.
+:- dynamic cat_statue_placed/0.
 :- discontiguous health/2.
 :- discontiguous combat/2.
 :- discontiguous visible_npc/1.
@@ -272,6 +273,7 @@ object(health_kit, lobby).
 object(health_kit, security_post).
 object(health_kit, records_room).
 object(charge_upgrade, atrium).
+object(cat_statue, upper_hall).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -360,6 +362,22 @@ note(directors_office, memo_to_staff,
     "An unsent memo: 'To all Bureau staff — the situation is under control. \
 Please disregard the sounds coming from the walls. This is normal. \
 Everything is normal. —Director'").
+
+note(atrium, cat_plinth,
+    "A circular stone plinth sits at the centre of the atrium floor. \
+An inscription reads: 'The Watcher returns the way.' \
+A shallow recess on top looks like something should rest there.").
+
+note(atrium, geometric_inscription,
+    "Etched into the floor around the plinth, in a language that shouldn't be readable \
+but somehow is: 'The Astral Cat stood here before time was counted. \
+Return it and the House remembers.'").
+
+note(atrium, research_scrawl,
+    "A torn page from a researcher's notebook, wedged under the plinth: \
+'The resonance patterns converge at this point. Whatever belonged here \
+has been moved to the upper level for safekeeping. Bad idea. \
+The room has been wrong ever since. —R.H.'").
 
 note(upper_hall, evacuation_notice,
     "A laminated evacuation notice, corners curling: 'In the event of a paranatural \
@@ -774,6 +792,7 @@ show_help :-
     normal_text("Items:     take <item> | pick up <item>"),
     normal_text("Inventory: inventory | inv | i"),
     normal_text("Talk:      talk <npc>"),
+    normal_text("Place:     place <item> | put <item> down"),
     normal_text("Unlock:    unlock <item> <code>"),
     normal_text("Combat:    attack <enemy>"),
     normal_text("Skip:      skip | wait (let enemy attack, recharge weapon)"),
@@ -1275,6 +1294,16 @@ take_item(Item) :-
     format(atom(Msg), "There's no ~w here to take.", [Item]),
     normal_text(Msg).
 
+look_at(cat_statue) :-
+    ( has(jesse, cat_statue)
+    -> normal_text("A small stone cat. It sits perfectly still in your hands. \
+Its eyes seem to follow you. You get the sense it wants to be somewhere specific.")
+    ;  location(jesse, Room),
+       ( object(cat_statue, Room) ; cat_statue_placed, Room = atrium )
+    -> normal_text("A small stone cat rests on the plinth. The floor hums softly beneath it.")
+    ;  normal_text("You don't see a cat statue here.")
+    ), !.
+
 look_at(Obj) :-
     format(atom(Msg), "You examine the ~w closely, but see nothing special.", [Obj]),
     normal_text(Msg).
@@ -1308,6 +1337,7 @@ restart_game :-
     retractall(game_over),
     retractall(health_kit_tip_shown),
     retractall(attack_tip_shown),
+    retractall(cat_statue_placed),
     retractall(hiss_infected(_)),
     retractall(weapon_just_taken),
     retractall(location(_, _)),
@@ -1341,7 +1371,7 @@ restart_game :-
     assertz(object(health_kit, lobby)),
     assertz(object(health_kit, security_post)),
     assertz(object(health_kit, records_room)),
-    
+    assertz(object(cat_statue, upper_hall)),
     % restart game
     normal_text("Game restarted!"),
     init_game_output.   % web-safe: no game_loop call
