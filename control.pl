@@ -702,6 +702,15 @@ show_charge :-
     ; highlight_text("You need to pick up the Service Weapon first.")
     ).
 
+show_inventory :-
+    findall(I, has(jesse, I), Items),
+    ( Items = []
+    -> highlight_text("Your inventory is empty.")
+    ;  atomic_list_concat(Items, ', ', ItemStr),
+       highlight_text("You are carrying:"),
+       note_text(ItemStr)
+    ).
+
 /* Funny Text */
 funny_outside_message :-
     outside_attempts(N),
