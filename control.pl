@@ -96,6 +96,7 @@ description(directors_office,
 /* --- Items --- */
 object(keys, lobby).
 object(service_weapon, directors_office).
+object(locked_box, food_vendor).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -127,6 +128,9 @@ note(west_road, graffiti,
 
 note(west_road, lost_time,
     "A discarded pocket watch lies in the dirt. The hands spin wildly, unable to settle on a time.").
+
+note(food_vendor, menu,
+    "A grease-stained menu board reads: 'TODAY'S SPECIAL: Bureau Burger - Code: BUREAU47'").
 
 % when you enter or start, tell player if there are unread notes
 list_notes(Room) :-
@@ -293,6 +297,13 @@ parse([read, notes, Name], read(Name)).
 parse([map], map).
 parse([show, map], map).
 
+parse([unlock, Item], unlock(Item, none)).
+parse([unlock, Item, Code], unlock(Item, Code)).
+
+parse([restart], restart).
+parse([new, game], restart).
+parse([start, over], restart).
+
 /* --- Command Dispatch --- */
 
 dispatch(look) :- !, describe_here.
@@ -303,6 +314,8 @@ dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
 dispatch(attack) :- !, combat(jesse, hiss_guard).
 dispatch(attack(hiss_guard)) :- !, combat(jesse, hiss_guard).
+dispatch(unlock(Item, Code)) :- !, unlock_item(Item, Code).
+dispatch(restart) :- !, restart_game.
 dispatch(read(Name)) :- !, read_notes(Name).
 dispatch(map) :- !, location(jesse, Room), show_map(Room).
 dispatch(quit) :- !, writeln("You step back from the House.").
@@ -319,7 +332,9 @@ show_help :-
     normal_text("Read:     read | read <note_name>"),
     normal_text("Items:    take <item> | pick up <item>"),
     normal_text("Talk:     talk <npc>"),
+    normal_text("Unlock:   unlock <item> <code>"),
     normal_text("Combat:   attack <enemy>"),
+    normal_text("Restart:  restart | new game | start over"),
     normal_text("Help:     help"),
     normal_text("Quit:     quit"),
     map_text("----------------"),
@@ -473,7 +488,8 @@ describe_here :-
     description(Room, Desc),
     normal_text(Desc),
     ( Room = food_vendor
-    -> tip_text("Tip: if you're stuck, go west back to the street entrance to the Oldest House.")
+    -> tip_text("Tip: if you're stuck, go west back to the street entrance to the Oldest House."),
+       tip_text("Tip: try 'unlock locked_box <code>' if you find a clue.")
     ; true
     ),
     list_notes(Room),
@@ -497,6 +513,68 @@ list_items(Room) :-
     ; format(string(S),"Items here: ~w",[Items]),
       highlight_text(S)
     ).
+
+take_item(Item) :-
+    location(jesse, Room),
+    object(Item, Room),
+    !,
+    retract(object(Item, Room)),
+    assertz(has(jesse, Item)),
+    format("You take the ~w.~n", [Item]),
+    describe_here.
+
+take_item(Item) :-
+    format("There's no ~w here to take.~n", [Item]).
+
+look_at(Obj) :-
+    format("You examine the ~w closely, but see nothing special.~n", [Obj]).
+
+unlock_item(Item, Code) :-
+    atom_string(Item, ItemStr),
+    string_lower(ItemStr, ItemLower),
+    atom_string(ItemAtom, ItemLower),
+    ( ItemAtom = locked_box
+    -> ( Code = none
+       -> location(jesse, food_vendor),
+          object(locked_box, food_vendor),
+          !,
+          tip_text("Usage: unlock locked_box <code>")
+       ; location(jesse, food_vendor),
+         object(locked_box, food_vendor),
+         !,
+         ( Code = bureau47
+         -> retract(object(locked_box, food_vendor)),
+            assertz(has(jesse, mystery_key)),
+            highlight_text("You unlock the box and find a mysterious key inside!"),
+            describe_here
+         ;  color_ln(red, "That's not the right code.")
+         )
+       )
+    ; format(string(S), "You can't unlock the ~w.~n", [Item]),
+      color_ln(red, S)
+    ).
+
+restart_game :-
+    % retract all dynamic state
+    retractall(location(_, _)),
+    retractall(health(_, _)),
+    retractall(has(_, _)),
+    retractall(read_note(_, _)),
+    retractall(outside_attempts(_)),
+    
+    % restore initial state
+    assertz(location(jesse, street)),
+    assertz(location(ahti, janitor_hall)),
+    assertz(location(hiss_guard, upper_hall)),
+    assertz(location(vendor, food_vendor)),
+    assertz(health(jesse, 100)),
+    assertz(health(hiss_guard, 30)),
+    assertz(outside_attempts(0)),
+    
+    % restart game
+    normal_text("Game restarted!"),
+    writeln(""),
+    start.
 
 % ensure game begins when invoked with `swipl game.pl`
 :- initialization(start, main).
