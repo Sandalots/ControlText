@@ -442,6 +442,31 @@ combat(jesse, hiss_guard) :-
 combat(jesse, hiss_guard) :-
     normal_text("The Hiss Guard is already dead."), !.
 
+combat(jesse, hiss_guard_b) :-
+    location(jesse, Room),
+    location(hiss_guard_b, Room),
+    has(jesse, service_weapon),
+    health(hiss_guard_b, HP),
+    HP > 0,
+    !,
+    weapon_charge(jesse, Charge),
+    ( Charge =< 0
+    -> highlight_text("Your weapon is out of charge! Use 'skip' to recharge.")
+    ;  Dmg is 10,
+       NewHP is HP - Dmg,
+       retract(health(hiss_guard_b, HP)),
+       assert(health(hiss_guard_b, NewHP)),
+       NewCharge is Charge - 1,
+       retract(weapon_charge(jesse, Charge)),
+       assert(weapon_charge(jesse, NewCharge)),
+       format(atom(Msg), "You fire! Hiss Guard health: ~w -> ~w", [HP, NewHP]),
+       normal_text(Msg),
+       enemy_turn_guard_b
+    ).
+
+combat(jesse, hiss_guard_b) :-
+    normal_text("The Hiss Guard is already dead."), !.
+
 combat(_, hiss_guard) :-
     normal_text("There's nothing to attack here."), !.
 
@@ -451,9 +476,10 @@ enemy_turn :-
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Guard collapses into silence."),
        highlight_text("═══════════════════════════════════"),
+       ( location(hiss_guard, DeadRoom) -> retract(location(hiss_guard, DeadRoom)) ; true ),
        max_weapon_charge(jesse, MaxCharge),
        retract(weapon_charge(jesse, _)),
-       assert(weapon_charge(jesse, MaxCharge)),
+       assertz(weapon_charge(jesse, MaxCharge)),
        format(atom(RechargeMsg), "Service Weapon recharged to ~w/~w.", [MaxCharge, MaxCharge]),
        highlight_text(RechargeMsg),
        ( health_kit_tip_shown -> true
@@ -475,20 +501,21 @@ enemy_turn :-
        check_death
     ).
 
-enemy_turn_brute :-
-    health(hiss_brute, HP),
+enemy_turn_guard_b :-
+    health(hiss_guard_b, HP),
     ( HP =< 0
     -> highlight_text("═══════════════════════════════════"),
-       highlight_text("The Hiss Brute collapses into silence."),
+       highlight_text("The Hiss Guard collapses into silence."),
        highlight_text("═══════════════════════════════════"),
+       ( location(hiss_guard_b, DeadRoom) -> retract(location(hiss_guard_b, DeadRoom)) ; true ),
        max_weapon_charge(jesse, MaxCharge),
        retract(weapon_charge(jesse, _)),
-       assert(weapon_charge(jesse, MaxCharge)),
+       assertz(weapon_charge(jesse, MaxCharge)),
        format(atom(RechargeMsg), "Service Weapon recharged to ~w/~w.", [MaxCharge, MaxCharge]),
        highlight_text(RechargeMsg)
-    ;  normal_text("The Hiss Brute charges at you!"),
+    ;  normal_text("The Hiss Guard lashes out!"),
        health(jesse, JHP),
-       NewJHP is JHP - 33,
+       NewJHP is JHP - 25,
        retract(health(jesse, JHP)),
        assert(health(jesse, NewJHP)),
        max_health(jesse, MaxHP),
