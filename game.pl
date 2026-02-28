@@ -11,6 +11,14 @@
 :- dynamic location/2.
 :- dynamic health/2.
 :- dynamic has/2.
+:- use_module(library(pcre)).        % for re_replace/4
+
+/* --- Helpers --- */
+
+% strip non‑letters from the beginning/end of a word so "enter." → "enter"
+clean_token(In, Out) :-
+    % note the '/i' flag – not 'i' immediately after the quote
+    re_replace('(^[^a-z]+|[^a-z]+$)'/i, '', In, Out).
 
 /* --- Initial State --- */
 
@@ -67,13 +75,22 @@ object(service_weapon, directors_office).
 /* --- Game Start --- */
 
 start :-
+    % show the map immediately, before any flavour text
+    location(jesse, Room),
+    show_map(Room),
+
     writeln("You arrive at the Federal Bureau of Control."),
     writeln("The building looms above you, humming with a strange, low resonance."),
     writeln("Something pulls you toward the entrance."),
     writeln(""),
     writeln("Tip: try 'enter' to go inside."),
     writeln(""),
-    describe_here,
+    % now print the description for the starting room
+    description(Room, Desc),
+    writeln(Desc),
+    list_occupants(Room),
+    list_items(Room),
+
     game_loop.
 
 /* --- Game Loop --- */
@@ -83,11 +100,12 @@ game_loop :-
     write("> "),
     read_line_to_string(user_input, Line),
     string_lower(Line, Lower),
-    split_string(Lower, " ", " \t", Words),
+    split_string(Lower, " ", " \t", Words0),
+    maplist(clean_token, Words0, Words),          % remove punctuation
     maplist(atom_string, Tokens, Words),
     (   parse(Tokens, Command)
     ->  dispatch(Command),
-        (Command = quit -> ! ; fail)
+        ( Command = quit -> ! ; true )            % no failure for normal commands
     ;   writeln("I don't understand."),
         fail
     ).
@@ -119,15 +137,14 @@ parse([go, in], go(enter)).
 
 /* --- Command Dispatch --- */
 
-dispatch(look) :- describe_here.
-dispatch(look_at(Obj)) :- look_at(Obj).
-dispatch(go(Dir)) :- move(jesse, Dir).
-dispatch(talk(ahti)) :- talk_to(ahti).
-dispatch(take(Obj)) :- take_item(Obj).
-dispatch(attack(hiss_guard)) :- combat(jesse, hiss_guard).
-dispatch(quit) :- writeln("You step back from the House.").
-dispatch(help) :- show_help.
-
+dispatch(look)                :- !, describe_here.
+dispatch(look_at(Obj))        :- !, look_at(Obj).
+dispatch(go(Dir))             :- !, move(jesse, Dir).
+dispatch(talk(ahti))          :- !, talk_to(ahti).
+dispatch(take(Obj))           :- !, take_item(Obj).
+dispatch(attack(hiss_guard))  :- !, combat(jesse, hiss_guard).
+dispatch(quit)                :- !, writeln("You step back from the House.").
+dispatch(help)                :- !, show_help.
 
 dispatch(Cmd) :-
     format("I don't know how to handle: ~w~n", [Cmd]).
@@ -229,6 +246,30 @@ neighbor(Current, Cardinal, DisplayNext, Status) :-
        ; fail )
     ).
 
+% produce a string of N spaces
+spaces(0, "").
+spaces(N, S) :-
+    N > 0,
+    N1 is N - 1,
+    spaces(N1, S1),
+    atom_concat(" ", S1, S).
+
+% print a short horizontal “‑” line under the center label when there
+% is a west or east neighbour; used by show_map/1
+print_horizontal_connector(Center, WLabel, ELabel) :-
+    atom_length(Center, CL),
+    ( WLabel \= "" ->
+        atom_length(WLabel, WL),
+        spaces(WL, Wsp),
+        format("~w-~n", [Wsp])
+    ; true ),
+    ( ELabel \= "" ->
+        % pad to roughly align with east arrow
+        Pad is 6 + CL,
+        spaces(Pad, Esp),
+        format("~w-~n", [Esp])
+    ; true ).
+
 show_map(Current) :-
     map_label_center(Current, Center),
 
@@ -238,10 +279,25 @@ show_map(Current) :-
     ( neighbor(Current, west,  W, WStatus)  -> label_with_status(W, WStatus, WLabel) ; WLabel = "" ),
 
     writeln(""),
-    writeln("Map:"),
+    writeln("Relative Map:"),
 
-    % North (centered above)
-    ( NLabel \= "" -> format("      ~w~n      ^~n", [NLabel]) ; true ),
+    % dynamic centring calculations
+    atom_length(Center, CL),
+    BasePad = 6,
+    ArrowOff is BasePad + CL // 2,       % column where the vertical arrow should sit
+
+    % North (centre the room name over ArrowOff)
+    ( NLabel \= "" ->
+        atom_length(NLabel, NL),
+        NIndent is ArrowOff - NL // 2,
+        spaces(NIndent, Nsp),
+        format("~w~w~n", [Nsp, NLabel]),
+        spaces(ArrowOff, Aoff),
+        format("~w^~n~w|~n", [Aoff, Aoff])      % caret then bar
+    ; true ),
+
+    % horizontal connector for east/west neighbours
+    print_horizontal_connector(Center, WLabel, ELabel),
 
     % Middle: west - center - east (with arrowheads)
     ( WLabel \= "", ELabel \= "" ->
@@ -254,8 +310,33 @@ show_map(Current) :-
        format("      ~w~n", [Center])
     ),
 
-    % South (centered below)
-    ( SLabel \= "" -> format("      v~n      ~w~n", [SLabel]) ; true ),
+    % South (same centring as north)
+    ( SLabel \= "" ->
+        atom_length(SLabel, SL),
+        SIndent is ArrowOff - SL // 2,
+        spaces(ArrowOff, Aoff2),
+        format("~wv~n~w|~n", [Aoff2, Aoff2]),    % keep this order or flip if desired
+        spaces(SIndent, Ssp),
+        format("~w~w~n", [Ssp, SLabel])
+    ; true ),
 
     writeln("").
+describe_here :-
+    location(jesse, Room),
+    show_map(Room),
+    description(Room, Desc),
+    writeln(Desc),
+    list_occupants(Room),
+    list_items(Room).
+
+list_occupants(Room) :-
+    findall(N, (location(N, Room), N \= jesse), Others),
+    ( Others = [] -> true ; format("You see: ~w~n", [Others]) ).
+
+list_items(Room) :-
+    findall(I, object(I, Room), Items),
+    ( Items = [] -> true ; format("Items here: ~w~n", [Items]) ).
+
+% ensure game begins when invoked with `swipl game.pl`
+:- initialization(start, main).
 
