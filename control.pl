@@ -552,7 +552,6 @@ list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
     ( Others = [] -> true
     ; format(string(S),"You see: ~w",[Others]),
-    writeln(""),
       highlight_text(S),
       ( member(vendor, Others)
       -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
@@ -589,8 +588,7 @@ take_item(Item) :-
        assert(health(jesse, NewHP)),
        highlight_text("The health upgrade glows and merges with you!"),
        format("Health increased to ~w/100~n", [NewHP])
-    ; format("You take the ~w.~n", [MatchObj]),
-      describe_here
+    ; format("You take the ~w.~n", [MatchObj])
     ).
 
 take_item(Item) :-
