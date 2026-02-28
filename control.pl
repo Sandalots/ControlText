@@ -71,8 +71,23 @@ connected(janitor_hall, lobby, west).
 connected(lobby, upper_hall, north) :-
     has(jesse, keys).        % locked until you get keys
 
-connected(lobby, lobby, north) :-
-    \+ has(jesse, keys).     % hallway loops until you get keys
+connected(lobby, lab77_locked, west) :-
+    \+ has(jesse, lab77_key).
+
+connected(lab77_locked, lobby, east) :-
+    \+ has(jesse, lab77_key).
+
+connected(lobby, lab77, west) :-
+    has(jesse, lab77_key).
+
+connected(lab77, lobby, east) :-
+    has(jesse, lab77_key).
+
+connected(lab77, secret_chamber, south) :-
+    has(jesse, smash).
+
+connected(secret_chamber, lab77, north) :-
+    has(jesse, smash).
 
 connected(upper_hall, directors_office, north).
 connected(directors_office, upper_hall, south).
@@ -102,10 +117,21 @@ description(upper_hall,
 description(directors_office,
 "A quiet office. A pedestal holds an unremarkable service pistol.").
 
+description(lab77_locked,
+"A sealed laboratory door marked 'LAB 77' blocks your path. It's locked tight.").
+
+description(lab77,
+"Inside Lab 77. Equipment hums softly on the walls. A smash object sits on a bench.").
+
+description(secret_chamber,
+"A hidden chamber behind a crumbled wall. Strange equipment covers the shelves. Your brother sits slumped in a chair, eyes closed.").
+
 /* --- Items --- */
 object(keys, lobby).
 object(service_weapon, directors_office).
 object(locked_box, food_vendor).
+object(smash, lab77).
+object(health_upgrade, secret_chamber).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -140,6 +166,21 @@ note(west_road, lost_time,
 
 note(food_vendor, menu,
     "A grease-stained menu board reads: 'TODAY'S SPECIAL: Bureau Burger - Code: BUREAU47'").
+
+note(lab77, experiment_log,
+    "Lab journal entry: 'The specimens respond to the resonance. Containment fields holding. —Dr. Darling'").
+
+note(lab77, warning_sign,
+    "A faded warning sign: 'DANGER: Dimensional Anomaly Active. Personnel must maintain safety protocols.'").
+
+note(secret_chamber, research_log,
+    "Faded research log: 'Subject exhibits anomalous properties. Further containment required. —Dr. Darling'").
+
+note(secret_chamber, equipment_note,
+    "Scrawled note: 'The Bureau's secrets buried deep. Some doors should stay locked.'").
+
+note(secret_chamber, final_note,
+    "A hastily written note: 'If you're reading this, then the House has let you in. Trust nothing. Find him and get out.'").
 
 % when you enter or start, tell player if there are unread notes
 list_notes(Room) :-
@@ -317,7 +358,7 @@ parse([start, over], restart).
 
 dispatch(look) :- !, describe_here.
 dispatch(look_at(Obj)) :- !, look_at(Obj).
-dispatch(go(Dir)) :- !, move(jesse, Dir).
+dispatch(go(Dir)) :- !, move(jesse, Dir), describe_here.
 dispatch(talk(ahti)) :- !, talk_to(ahti).
 dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
@@ -384,19 +425,19 @@ outside_attempts(0).
 move(jesse, Dir) :-
     location(jesse, street),
     Dir \= enter,
-    \+ connected(street, _, Dir),      % only block if no exit that way
+    \+ connected(street, _, Dir),
     funny_outside_message,
-    !,
-    describe_here.
+    !.
 
 move(Actor, Dir) :-
     location(Actor, Room),
-    (   connected(Room, Next, Dir)
-    ->  retract(location(Actor, Room)),
-        assert(location(Actor, Next)),
-        describe_here
-    ;   writeln("You can't go that way.")
-    ).
+    connected(Room, Next, Dir),
+    !,
+    retract(location(Actor, Room)),
+    assert(location(Actor, Next)).
+
+move(_, _) :-
+    writeln("You can't go that way.").
 
 /* --- Descriptions --- */
 
@@ -499,7 +540,8 @@ describe_here :-
     normal_text(Desc),
     ( Room = food_vendor
     -> tip_text("Tip: if you're stuck, go west back to the street entrance to the Oldest House."),
-       tip_text("Tip: try 'unlock locked_box <code>' if you find a clue.")
+       tip_text("Tip: try 'unlock locked_box <code>' if you find a clue."),
+       writeln("")
     ; true
     ),
     list_notes(Room),
@@ -510,9 +552,11 @@ list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
     ( Others = [] -> true
     ; format(string(S),"You see: ~w",[Others]),
+    writeln(""),
       highlight_text(S),
       ( member(vendor, Others)
-      -> tip_text("Tip: perhaps you could 'talk vendor' while you're here.")
+      -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
+         writeln("")
       ; true
       )
     ).
@@ -538,8 +582,16 @@ take_item(Item) :-
     !,
     retract(object(MatchObj, Room)),
     assertz(has(jesse, MatchObj)),
-    format("You take the ~w.~n", [MatchObj]),
-    describe_here.
+    ( MatchObj = health_upgrade
+    -> health(jesse, HP),
+       NewHP is min(100, HP + 5),
+       retract(health(jesse, HP)),
+       assert(health(jesse, NewHP)),
+       highlight_text("The health upgrade glows and merges with you!"),
+       format("Health increased to ~w/100~n", [NewHP])
+    ; format("You take the ~w.~n", [MatchObj]),
+      describe_here
+    ).
 
 take_item(Item) :-
     format("There's no ~w here to take.~n", [Item]).
@@ -592,6 +644,8 @@ restart_game :-
     assertz(object(keys, lobby)),
     assertz(object(service_weapon, directors_office)),
     assertz(object(locked_box, food_vendor)),
+    assertz(object(smash, lab77)),
+    assertz(object(health_upgrade, secret_chamber)),
     
     % restart game
     normal_text("Game restarted!"),
