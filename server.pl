@@ -51,10 +51,12 @@ color_ln(_, Text)      :- buf_add(normal, Text).
 % space_if_color_changed is handled automatically by buf_add style tracking
 space_if_color_changed.
 
-% Catch stray writeln calls
+% Catch stray writeln calls — ignore empty strings
 writeln(Text) :-
-    term_to_atom(Text, A), atom_string(A, S),
-    buf_add(normal, S).
+    ( Text = "" ; Text = '' ; Text = [] )
+    -> true
+    ;  term_to_atom(Text, A), atom_string(A, S),
+       ( S = "" -> true ; buf_add(normal, S) ).
 
 /* --- Load game AFTER output overrides --- */
 :- [control].
@@ -101,8 +103,8 @@ init_game_output :-
     description(Room, Desc),
     normal_text(Desc),
     list_notes(Room),
-    list_occupants(Room),
-    list_items(Room).
+    list_items(Room),
+    list_occupants(Room).
 
 reset_game :-
     retractall(location(_, _)),
@@ -114,19 +116,21 @@ reset_game :-
     retractall(read_note(_, _)),
     retractall(outside_attempts(_)),
     retractall(object(_, _)),
+    retractall(game_over),
     retractall(last_color(_)),
     retractall(last_buf_style(_)),
     assertz(last_color(default)),
     assertz(last_buf_style(none)),
     assertz(location(jesse, street)),
     assertz(location(ahti, janitor_hall)),
-    assertz(location(hiss_guard, upper_hall)),
+    % hiss_guard spawns when service_weapon is picked up
+    assertz(location(hiss_brute, atrium)),
     assertz(location(vendor, food_vendor)),
     assertz(health(jesse, 100)),
     assertz(max_health(jesse, 100)),
+    assertz(health(hiss_brute, 50)),
     assertz(weapon_charge(jesse, 10)),
     assertz(max_weapon_charge(jesse, 10)),
-    assertz(health(hiss_guard, 30)),
     assertz(outside_attempts(0)),
     assertz(object(keys, lobby)),
     assertz(object(service_weapon, directors_office)),
@@ -134,7 +138,7 @@ reset_game :-
     assertz(object(smash, lab77)),
     assertz(object(health_upgrade, secret_chamber)),
     assertz(object(health_upgrade, toilets)),
-    assertz(object(charge_upgrade, lobby)),
+    assertz(object(charge_upgrade, atrium)),
     assertz(object(health_kit, lobby)),
     assertz(object(health_kit, security_post)),
     assertz(object(health_kit, records_room)).
