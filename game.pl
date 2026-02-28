@@ -192,88 +192,70 @@ move(Actor, Dir) :-
 
 /* --- Descriptions --- */
 
-describe_here :-
-    location(jesse, Room),
-    description(Room, Desc),
-    writeln(Desc),
-    list_occupants(Room),
-    list_items(Room).
+% New: centered ASCII map showing only adjacent N/S/E/W rooms and locked status.
+map_label_center(Room, Label) :-
+    format(atom(Label), "[>~w<]", [Room]).
 
-list_occupants(Room) :-
-    findall(N, (location(N, Room), N \= jesse), Others),
-    (Others = [] -> true ; format("You see: ~w~n", [Others])).
+label_with_status(Name, Status, Label) :-
+    ( Status = locked
+    -> format(atom(Label), "[~w] (locked)", [Name])
+    ;  format(atom(Label), "[~w]", [Name])
+    ).
 
-list_items(Room) :-
-    findall(I, object(I, Room), Items),
-    (Items = [] -> true ; format("Items here: ~w~n", [Items])).
+% treat alternate connection atoms as cardinals
+dir_equiv(north, north).
+dir_equiv(north, enter).
+dir_equiv(south, south).
+dir_equiv(south, exit).
+dir_equiv(east,  east).
+dir_equiv(west,  west).
 
-/* --- Look At --- */
+% neighbor/4: succeed if there's an effective neighbor in Dir (now using dir_equiv/2).
+neighbor(Current, Cardinal, DisplayNext, Status) :-
+    dir_equiv(Cardinal, ConnDir),
+    ( connected(Current, Next, ConnDir) ->
+        ( Next \= Current
+        -> DisplayNext = Next, Status = open
+        ;  % Next == Current: check if an alternate clause exists (locked)
+           ( clause(connected(Current, Alt, ConnDir), _) , Alt \= Current
+           -> DisplayNext = Alt, Status = locked
+           ;  % genuine self-loop -> treat as no neighbor
+              fail
+           )
+        )
+    ;  % no direct success: maybe there's a conditional clause that would allow movement (locked)
+       ( clause(connected(Current, Alt, ConnDir), _) ->
+           DisplayNext = Alt, Status = locked
+       ; fail )
+    ).
 
-look_at(Obj) :-
-    object(Obj, Room),
-    location(jesse, Room),
-    format("You examine the ~w.~n", [Obj]), !.
+show_map(Current) :-
+    map_label_center(Current, Center),
 
-look_at(_) :-
-    writeln("You don't see that here.").
+    ( neighbor(Current, north, N, NStatus) -> label_with_status(N, NStatus, NLabel) ; NLabel = "" ),
+    ( neighbor(Current, south, S, SStatus) -> label_with_status(S, SStatus, SLabel) ; SLabel = "" ),
+    ( neighbor(Current, east,  E, EStatus)  -> label_with_status(E, EStatus, ELabel) ; ELabel = "" ),
+    ( neighbor(Current, west,  W, WStatus)  -> label_with_status(W, WStatus, WLabel) ; WLabel = "" ),
 
-/* --- Items --- */
+    writeln(""),
+    writeln("Map:"),
 
-take_item(keys) :-
-    location(jesse, lobby),
-    retract(object(keys, lobby)),
-    assert(has(jesse, keys)),
-    writeln("You pick up the janitor's keys. The lights flicker."), !.
+    % North (centered above)
+    ( NLabel \= "" -> format("      ~w~n      ^~n", [NLabel]) ; true ),
 
-take_item(service_weapon) :-
-    location(jesse, directors_office),
-    retract(object(service_weapon, directors_office)),
-    assert(has(jesse, service_weapon)),
-    writeln("The weapon vibrates in your hand. You feel… chosen."), !.
+    % Middle: west - center - east (with arrowheads)
+    ( WLabel \= "", ELabel \= "" ->
+        format("~w <-- ~w --> ~w~n", [WLabel, Center, ELabel])
+    ; WLabel \= "" ->
+        format("~w <-- ~w~n", [WLabel, Center])
+    ; ELabel \= "" ->
+        format("      ~w --> ~w~n", [Center, ELabel])
+    ;  % no lateral neighbors: just show center (centered)
+       format("      ~w~n", [Center])
+    ),
 
-take_item(_) :-
-    writeln("You can't take that.").
+    % South (centered below)
+    ( SLabel \= "" -> format("      v~n      ~w~n", [SLabel]) ; true ),
 
-/* --- Dialogue --- */
-
-talk_to(ahti) :-
-    location(jesse, janitor_hall),
-    (   has(jesse, keys)
-    ->  writeln("'Good. Keys open many doors,' Ahti says with a grin.")
-    ;   writeln("'Lost? Keys are in the lobby,' Ahti says, pointing back.")
-    ), !.
-
-talk_to(_) :-
-    writeln("There's no one to talk to.").
-
-/* --- Combat --- */
-
-combat(jesse, hiss_guard) :-
-    location(jesse, upper_hall),
-    health(hiss_guard, HP),
-    HP > 0,
-    writeln("You fire the Service Weapon."),
-    NewHP is HP - 12,
-    retract(health(hiss_guard, HP)),
-    assert(health(hiss_guard, NewHP)),
-    format("Hiss Guard now has ~w HP.~n", [NewHP]),
-    enemy_turn, !.
-
-combat(_, hiss_guard) :-
-    writeln("There's nothing to attack here."), !.
-
-/* --- Enemy Turn --- */
-
-enemy_turn :-
-    health(hiss_guard, HP),
-    HP =< 0,
-    writeln("The Hiss Guard collapses into silence."), !.
-
-enemy_turn :-
-    writeln("The Hiss Guard lashes out!"),
-    health(jesse, JHP),
-    NewJHP is JHP - 8,
-    retract(health(jesse, JHP)),
-    assert(health(jesse, NewJHP)),
-    format("You now have ~w HP.~n", [NewJHP]).
+    writeln("").
 
