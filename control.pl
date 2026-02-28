@@ -14,6 +14,8 @@
 :- dynamic has/2.
 :- dynamic read_note/2.
 :- dynamic object/2.
+:- dynamic weapon_charge/2.
+:- dynamic max_weapon_charge/2.
 :- discontiguous health/2.
 :- use_module(library(pcre)).        % for re_replace/4
 :- use_module(library(ansi_term)).   % for colour output
@@ -30,13 +32,60 @@ clean_token_smart(In, Out) :-
 clean_token(In, Out) :-
     re_replace('(^[^a-z]+|[^a-z]+$)'/i, '', In, Out).
 
-% colourised output helpers
+% Track the last color used
+:- dynamic last_color/1.
+last_color(default).
+
+% colourised output helpers with automatic newline on color change
 color_ln(Color, Text) :-
-    ansi_format([fg(Color)], '~w~n', [Text]).
-normal_text(Text)    :- color_ln(green,  Text).
-highlight_text(Text) :- color_ln(yellow, Text).
-map_text(Text)       :- color_ln(cyan,   Text).
-tip_text(Text)       :- ansi_format([fg(magenta), bold], '~w~n', [Text]).  % new
+    last_color(LastColor),
+    ( LastColor \= Color, LastColor \= default
+    -> writeln("")  % Add newline if color changed
+    ; true
+    ),
+    ansi_format([fg(Color)], '~w~n', [Text]),
+    retract(last_color(LastColor)),
+    assert(last_color(Color)).
+
+normal_text(Text) :-
+    last_color(LastColor),
+    ( LastColor \= green, LastColor \= default
+    -> writeln("")
+    ; true
+    ),
+    ansi_format([fg(green)], '~w~n', [Text]),
+    retract(last_color(LastColor)),
+    assert(last_color(green)).
+
+highlight_text(Text) :-
+    last_color(LastColor),
+    ( LastColor \= yellow, LastColor \= default
+    -> writeln("")
+    ; true
+    ),
+    ansi_format([fg(yellow)], '~w~n', [Text]),
+    retract(last_color(LastColor)),
+    assert(last_color(yellow)).
+
+map_text(Text) :-
+    last_color(LastColor),
+    ( LastColor \= cyan, LastColor \= default
+    -> writeln("")
+    ; true
+    ),
+    ansi_format([fg(cyan)], '~w~n', [Text]),
+    retract(last_color(LastColor)),
+    assert(last_color(cyan)).
+
+tip_text(Text) :-
+    last_color(LastColor),
+    ( LastColor \= magenta, LastColor \= default
+    -> writeln("")
+    ; true
+    ),
+    ansi_format([fg(magenta), bold], '~w~n', [Text]),
+    retract(last_color(LastColor)),
+    assert(last_color(magenta)).
 
 % speak(Character,Text) – choose a colour for the speaker and print in
 % italic.  previously used green/yellow; switch to red.
@@ -54,6 +103,8 @@ location(vendor, food_vendor).
 health(jesse, 100).
 max_health(jesse, 100).
 health(hiss_guard, 30).
+weapon_charge(jesse, 10).
+max_weapon_charge(jesse, 10).
 
 /* --- Map --- */
 
@@ -155,6 +206,7 @@ object(smash, lab77).
 object(health_upgrade, secret_chamber).
 object(health_upgrade, toilets).
 object(health_kit, lobby).
+object(charge_upgrade, lobby).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -261,15 +313,29 @@ talk_to(_) :-
 
 combat(jesse, hiss_guard) :-
     location(jesse, upper_hall),
-    has(jesse, service_weapon),          % require weapon before combat
+    has(jesse, service_weapon),
+    weapon_charge(jesse, Charge),
+    Charge > 0,
     health(hiss_guard, HP),
     HP > 0,
     writeln("You fire the Service Weapon."),
     NewHP is HP - 12,
     retract(health(hiss_guard, HP)),
     assert(health(hiss_guard, NewHP)),
-    format("Hiss Guard now has ~w HP.~n", [NewHP]),
+    NewCharge is Charge - 1,
+    retract(weapon_charge(jesse, Charge)),
+    assert(weapon_charge(jesse, NewCharge)),
+    max_weapon_charge(jesse, MaxCharge),
+    format("Hiss Guard now has ~w HP. Weapon charge: ~w/~w~n", [NewHP, NewCharge, MaxCharge]),
     enemy_turn, !.
+
+combat(jesse, hiss_guard) :-
+    location(jesse, upper_hall),
+    has(jesse, service_weapon),
+    weapon_charge(jesse, Charge),
+    Charge =:= 0,
+    writeln("You pull the trigger, but the weapon is out of charge!"),
+    tip_text("Use 'skip' or 'wait' to let the enemy attack and recharge your weapon."), !.
 
 combat(jesse, hiss_guard) :-
     location(jesse, upper_hall),
@@ -292,6 +358,29 @@ enemy_turn :-
        assert(health(jesse, NewJHP)),
        format("You now have ~w HP.~n", [NewJHP])
     ).
+
+skip_turn :-
+    location(jesse, upper_hall),
+    health(hiss_guard, HP),
+    HP > 0,
+    writeln("You take a defensive stance and let the Hiss Guard attack."),
+    health(jesse, JHP),
+    NewJHP is JHP - 8,
+    retract(health(jesse, JHP)),
+    assert(health(jesse, NewJHP)),
+    format("The Hiss Guard strikes! You now have ~w HP.~n", [NewJHP]),
+    weapon_charge(jesse, Charge),
+    max_weapon_charge(jesse, MaxCharge),
+    ( Charge < MaxCharge
+    -> NewCharge is Charge + 1,
+       retract(weapon_charge(jesse, Charge)),
+       assert(weapon_charge(jesse, NewCharge)),
+       format("Your weapon recharges! Charge: ~w/~w~n", [NewCharge, MaxCharge])
+    ; true
+    ), !.
+
+skip_turn :-
+    writeln("You can only skip your turn during combat."), !.
 
 /* --- Game Start --- */
 
@@ -356,6 +445,9 @@ parse([quit], quit).
 parse([help], help).
 parse([health], health).
 parse([status], health).
+parse([charge], charge).
+parse([skip], skip).
+parse([wait], skip).
 
 parse([enter], go(enter)).
 parse([go, inside], go(enter)).
@@ -388,10 +480,12 @@ dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
 dispatch(attack) :- !, combat(jesse, hiss_guard).
 dispatch(attack(hiss_guard)) :- !, combat(jesse, hiss_guard).
+dispatch(skip) :- !, skip_turn.
 dispatch(unlock(Item, Code)) :- !, unlock_item(Item, Code).
 dispatch(restart) :- !, restart_game.
 dispatch(read(Name)) :- !, read_notes(Name).
 dispatch(health) :- !, show_health.
+dispatch(charge) :- !, show_charge.
 dispatch(map) :- !, location(jesse, Room), show_map(Room).
 dispatch(quit) :- !, writeln("You step back from the House.").
 dispatch(help) :- !, show_help.
@@ -409,7 +503,9 @@ show_help :-
     normal_text("Talk:     talk <npc>"),
     normal_text("Unlock:   unlock <item> <code>"),
     normal_text("Combat:   attack <enemy>"),
+    normal_text("Skip:     skip | wait (let enemy attack, recharge weapon)"),
     normal_text("Health:   health | status"),
+    normal_text("Charge:   charge (show weapon charge)"),
     normal_text("Restart:  restart | new game | start over"),
     normal_text("Help:     help"),
     normal_text("Quit:     quit"),
@@ -420,7 +516,17 @@ show_help :-
 show_health :-
     health(jesse, HP),
     max_health(jesse, MaxHP),
-    format("Current Health: ~w/~w~n", [HP, MaxHP]).
+    weapon_charge(jesse, Charge),
+    max_weapon_charge(jesse, MaxCharge),
+    format("Current Health: ~w/~w | Weapon Charge: ~w/~w~n", [HP, MaxHP, Charge, MaxCharge]).
+
+show_charge :-
+    ( has(jesse, service_weapon)
+    -> weapon_charge(jesse, Charge),
+       max_weapon_charge(jesse, MaxCharge),
+       format("Service Weapon Charge: ~w/~w~n", [Charge, MaxCharge])
+    ; highlight_text("You need to pick up the Service Weapon first.")
+    ).
 
 /* Funny Text */
 funny_outside_message :-
@@ -592,18 +698,25 @@ describe_here :-
 list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
     ( Others = [] -> true
-    ; format(string(S),"You see: ~w",[Others]),
-      highlight_text(S),
-      ( member(ahti, Others)
-      -> tip_text("Tip: perhaps you could 'talk ahti' while you're here."),
-         writeln("")
-      ; member(vendor, Others)
-      -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
-         writeln("")
-      ; member(hiss_guard, Others)
-      -> tip_text("Tip: use 'attack' to deal damage to the Hiss Guard!"),
-         writeln("")
-      ; true
+    ; FilteredOthers = Others,  % show all by default
+      ( Room = upper_hall, \+ has(jesse, service_weapon)
+      -> FilteredOthers = []    % hide hiss_guard until you have weapon
+      ; FilteredOthers = Others
+      ),
+      ( FilteredOthers = [] -> true
+      ; format(string(S),"You see: ~w",[FilteredOthers]),
+        highlight_text(S),
+        ( member(ahti, FilteredOthers)
+        -> tip_text("Tip: perhaps you could 'talk ahti' while you're here."),
+           writeln("")
+        ; member(vendor, FilteredOthers)
+        -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
+           writeln("")
+        ; member(hiss_guard, FilteredOthers)
+        -> tip_text("Tip: use 'attack' to deal damage to the Hiss Guard!"),
+           writeln("")
+        ; true
+        )
       )
     ).
 
@@ -641,6 +754,19 @@ take_item(Item) :-
        assertz(has(jesse, MatchObj)),
        highlight_text("The health upgrade glows and merges with you!"),
        format("Max health increased from ~w to ~w/~w~n", [MaxHP, NewHP, NewMaxHP])
+    ; MatchObj = charge_upgrade
+    -> max_weapon_charge(jesse, MaxCharge),
+       retract(object(MatchObj, Room)),
+       NewMaxCharge is MaxCharge + 2,
+       retract(max_weapon_charge(jesse, MaxCharge)),
+       assert(max_weapon_charge(jesse, NewMaxCharge)),
+       weapon_charge(jesse, Charge),
+       NewCharge is min(NewMaxCharge, Charge + 2),
+       retract(weapon_charge(jesse, Charge)),
+       assert(weapon_charge(jesse, NewCharge)),
+       assertz(has(jesse, MatchObj)),
+       highlight_text("The charge upgrade pulses with energy and merges with your weapon!"),
+       format("Max weapon charge increased from ~w to ~w/~w~n", [MaxCharge, NewCharge, NewMaxCharge])
     ; MatchObj = health_kit
     -> health(jesse, HP),
        max_health(jesse, MaxHP),
@@ -694,6 +820,8 @@ restart_game :-
     retractall(location(_, _)),
     retractall(health(_, _)),
     retractall(max_health(_, _)),
+    retractall(weapon_charge(_, _)),
+    retractall(max_weapon_charge(_, _)),
     retractall(has(_, _)),
     retractall(read_note(_, _)),
     retractall(outside_attempts(_)),
@@ -706,6 +834,8 @@ restart_game :-
     assertz(location(vendor, food_vendor)),
     assertz(health(jesse, 100)),
     assertz(max_health(jesse, 100)),
+    assertz(weapon_charge(jesse, 10)),
+    assertz(max_weapon_charge(jesse, 10)),
     assertz(health(hiss_guard, 30)),
     assertz(outside_attempts(0)),
     assertz(object(keys, lobby)),
@@ -714,6 +844,7 @@ restart_game :-
     assertz(object(smash, lab77)),
     assertz(object(health_upgrade, secret_chamber)),
     assertz(object(health_upgrade, toilets)),
+    assertz(object(charge_upgrade, lobby)),
     assertz(object(health_kit, lobby)),
     
     % restart game
