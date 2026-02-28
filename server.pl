@@ -99,7 +99,7 @@ init_game_output :-
     normal_text("You arrive at the Federal Bureau of Control."),
     normal_text("The building looms above you, humming with a strange, low resonance."),
     normal_text("Something pulls you toward the entrance."),
-    tip_text("Tip: try 'enter' to go inside. Try 'help' for all commands."),
+    tip_text("Tip: try 'enter' or 'go north' to go inside The Oldest House. Try 'help' for all commands."),
     description(Room, Desc),
     normal_text(Desc),
     list_notes(Room),
