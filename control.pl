@@ -96,7 +96,7 @@ location(vendor, food_vendor).
 
 health(jesse, 100).
 max_health(jesse, 100).
-health(hiss_guard, 30).
+% health(hiss_guard, 30) is asserted when service_weapon is picked up
 health(hiss_brute, 50).
 weapon_charge(jesse, 10).
 max_weapon_charge(jesse, 10).
@@ -220,7 +220,7 @@ object(health_upgrade, toilets).
 object(health_kit, lobby).
 object(health_kit, security_post).
 object(health_kit, records_room).
-object(charge_upgrade, lobby).
+object(charge_upgrade, atrium).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -406,7 +406,7 @@ enemy_turn :-
        highlight_text("═══════════════════════════════════")
     ;  normal_text("The Hiss Guard lashes out!"),
        health(jesse, JHP),
-       NewJHP is JHP - 8,
+       NewJHP is JHP - 25,
        retract(health(jesse, JHP)),
        assert(health(jesse, NewJHP)),
        max_health(jesse, MaxHP),
@@ -423,7 +423,7 @@ enemy_turn_brute :-
        highlight_text("═══════════════════════════════════")
     ;  normal_text("The Hiss Brute charges at you!"),
        health(jesse, JHP),
-       NewJHP is JHP - 12,
+       NewJHP is JHP - 33,
        retract(health(jesse, JHP)),
        assert(health(jesse, NewJHP)),
        max_health(jesse, MaxHP),
@@ -435,13 +435,13 @@ enemy_turn_brute :-
 check_death :-
     health(jesse, HP),
     ( HP =< 0
-    -> highlight_text(""),
+    -> assertz(game_over),
+       highlight_text(""),
        highlight_text("╔═══════════════════════════════════╗"),
        highlight_text("║           GAME  OVER              ║"),
        highlight_text("╚═══════════════════════════════════╝"),
        normal_text("You have succumbed to the Hiss. The House claims another soul."),
-       normal_text("Type 'restart' to try again."),
-       game_loop   % keep loop running so player can restart
+       normal_text("Type 'restart' to try again.")
     ; true
     ).
 
@@ -504,14 +504,20 @@ game_loop :-
     split_string(Lower, " ", " \t", Words0),
     maplist(clean_token_smart, Words0, Words),
     maplist(atom_string, Tokens, Words),
-    (   parse(Tokens, Command)
-    ->  dispatch(Command),
-        ( Command = quit
-        -> true
-        ;  game_loop
-        )
-    ;   writeln("I don't understand."),
-        game_loop
+    ( game_over
+    -> ( parse(Tokens, restart)
+       -> dispatch(restart)
+       ;  parse(Tokens, quit)
+       -> dispatch(quit)
+       ;  normal_text("You are dead. Type 'restart' to try again or 'quit' to exit.")
+       ),
+       ( \+ game_over -> game_loop ; game_loop )
+    ;  (   parse(Tokens, Command)
+       ->  dispatch(Command),
+           ( Command = quit -> true ; game_loop )
+       ;   writeln("I don't understand."),
+           game_loop
+       )
     ).
 
 /* --- Parser --- */
@@ -910,6 +916,7 @@ take_item(Item) :-
       normal_text(M),
       ( MatchObj = service_weapon
       -> assertz(location(hiss_guard, upper_hall)),
+         assertz(health(hiss_guard, 30)),
          highlight_text("A distant screech echoes through the building...")
       ; true
       )
@@ -949,6 +956,7 @@ unlock_item(Item, Code) :-
     ).
 
 restart_game :-
+    retractall(game_over),
     % retract all dynamic state
     retractall(location(_, _)),
     retractall(health(_, _)),
@@ -970,7 +978,6 @@ restart_game :-
     assertz(max_health(jesse, 100)),
     assertz(weapon_charge(jesse, 10)),
     assertz(max_weapon_charge(jesse, 10)),
-    assertz(health(hiss_guard, 30)),
     assertz(health(hiss_brute, 50)),
     assertz(outside_attempts(0)),
     assertz(object(keys, lobby)),
@@ -979,7 +986,7 @@ restart_game :-
     assertz(object(smash, lab77)),
     assertz(object(health_upgrade, secret_chamber)),
     assertz(object(health_upgrade, toilets)),
-    assertz(object(charge_upgrade, lobby)),
+    assertz(object(charge_upgrade, atrium)),
     assertz(object(health_kit, lobby)),
     assertz(object(health_kit, security_post)),
     assertz(object(health_kit, records_room)),

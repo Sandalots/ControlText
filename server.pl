@@ -142,6 +142,6 @@ reset_game :-
 :- initialization(
     ( reset_game,
       http_server(http_dispatch, [port(8081)]),
-      format("Server running at http://localhost:8081/~n"),
+      format("My Control Text Adventure Adaption Game Server is running at http://localhost:8081/~n"),
       thread_get_message(stop)
     ), main).
