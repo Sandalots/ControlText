@@ -72,6 +72,64 @@ description(directors_office,
 object(keys, lobby).
 object(service_weapon, directors_office).
 
+take_item(keys) :-
+    location(jesse, lobby),
+    retract(object(keys, lobby)),
+    assert(has(jesse, keys)),
+    writeln("You pick up the janitor's keys. The lights flicker."), !.
+
+take_item(service_weapon) :-
+    location(jesse, directors_office),
+    retract(object(service_weapon, directors_office)),
+    assert(has(jesse, service_weapon)),
+    writeln("The weapon vibrates in your hand. You feel… chosen."), !.
+
+take_item(_) :-
+    writeln("You can't take that.").
+
+/* --- Dialogue --- */
+
+talk_to(ahti) :-
+    location(jesse, janitor_hall),
+    (   has(jesse, keys)
+    ->  writeln("'Good. Keys open many doors,' Ahti says with a grin.")
+    ;   writeln("'Lost? Keys are in the lobby,' Ahti says, pointing back.")
+    ), !.
+
+talk_to(_) :-
+    writeln("There's no one to talk to.").
+
+/* --- Combat --- */
+
+combat(jesse, hiss_guard) :-
+    location(jesse, upper_hall),
+    health(hiss_guard, HP),
+    HP > 0,
+    writeln("You fire the Service Weapon."),
+    NewHP is HP - 12,
+    retract(health(hiss_guard, HP)),
+    assert(health(hiss_guard, NewHP)),
+    format("Hiss Guard now has ~w HP.~n", [NewHP]),
+    enemy_turn, !.
+
+combat(_, hiss_guard) :-
+    writeln("There's nothing to attack here."), !.
+
+/* --- Enemy Turn --- */
+
+enemy_turn :-
+    health(hiss_guard, HP),
+    HP =< 0,
+    writeln("The Hiss Guard collapses into silence."), !.
+
+enemy_turn :-
+    writeln("The Hiss Guard lashes out!"),
+    health(jesse, JHP),
+    NewJHP is JHP - 8,
+    retract(health(jesse, JHP)),
+    assert(health(jesse, NewJHP)),
+    format("You now have ~w HP.~n", [NewJHP]).
+
 /* --- Game Start --- */
 
 start :-
