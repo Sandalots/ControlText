@@ -162,6 +162,7 @@ connected(secret_chamber, lab77, north) :-
 
 connected(upper_hall, directors_office, north).
 connected(directors_office, upper_hall, south).
+connected(upper_hall, lobby, south).        % return route from upper hall
 
 /* --- Room Descriptions --- */
 
@@ -370,7 +371,7 @@ combat(jesse, hiss_guard) :-
     Charge > 0,
     health(hiss_guard, HP),
     HP > 0,
-    writeln("You fire the Service Weapon."),
+    normal_text("You fire the Service Weapon."),
     NewHP is HP - 12,
     retract(health(hiss_guard, HP)),
     assert(health(hiss_guard, NewHP)),
@@ -378,7 +379,10 @@ combat(jesse, hiss_guard) :-
     retract(weapon_charge(jesse, Charge)),
     assert(weapon_charge(jesse, NewCharge)),
     max_weapon_charge(jesse, MaxCharge),
-    format("Hiss Guard now has ~w HP. Weapon charge: ~w/~w~n", [NewHP, NewCharge, MaxCharge]),
+    format(atom(HPMsg), "Hiss Guard HP: ~w/30", [NewHP]),
+    format(atom(ChargeMsg), "Charge: ~w/~w", [NewCharge, MaxCharge]),
+    highlight_text(HPMsg),
+    highlight_text(ChargeMsg),
     enemy_turn, !.
 
 combat(jesse, hiss_guard) :-
@@ -386,7 +390,7 @@ combat(jesse, hiss_guard) :-
     has(jesse, service_weapon),
     weapon_charge(jesse, Charge),
     Charge =:= 0,
-    writeln("You pull the trigger, but the weapon is out of charge!"),
+    normal_text("You pull the trigger, but the weapon is out of charge!"),
     tip_text("Use 'skip' or 'wait' to let the enemy attack and recharge your weapon."), !.
 
 combat(jesse, hiss_guard) :-
@@ -402,37 +406,51 @@ combat(_, hiss_guard) :-
 enemy_turn :-
     health(hiss_guard, HP),
     ( HP =< 0
-    -> writeln("The Hiss Guard collapses into silence.")
-    ;  writeln("The Hiss Guard lashes out!"),
+    -> highlight_text("═══════════════════════════════════"),
+       highlight_text("The Hiss Guard collapses into silence."),
+       highlight_text("═══════════════════════════════════")
+    ;  normal_text("The Hiss Guard lashes out!"),
        health(jesse, JHP),
        NewJHP is JHP - 8,
        retract(health(jesse, JHP)),
        assert(health(jesse, NewJHP)),
-       format("You now have ~w HP.~n", [NewJHP])
+       max_health(jesse, MaxHP),
+       format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
+       highlight_text(HealthMsg)
     ).
 
 skip_turn :-
     location(jesse, upper_hall),
     health(hiss_guard, HP),
     HP > 0,
-    writeln("You take a defensive stance and let the Hiss Guard attack."),
+    normal_text("You take a defensive stance and let the Hiss Guard attack."),
     health(jesse, JHP),
     NewJHP is JHP - 8,
     retract(health(jesse, JHP)),
     assert(health(jesse, NewJHP)),
-    format("The Hiss Guard strikes! You now have ~w HP.~n", [NewJHP]),
+    format(atom(StrikeMsg), "The Hiss Guard strikes! Your Health: ~w", [NewJHP]),
+    highlight_text(StrikeMsg),
     weapon_charge(jesse, Charge),
     max_weapon_charge(jesse, MaxCharge),
     ( Charge < MaxCharge
     -> NewCharge is Charge + 1,
        retract(weapon_charge(jesse, Charge)),
        assert(weapon_charge(jesse, NewCharge)),
-       format("Your weapon recharges! Charge: ~w/~w~n", [NewCharge, MaxCharge])
+       format(atom(RechargeMsg), "Weapon recharges! Charge: ~w/~w", [NewCharge, MaxCharge]),
+       highlight_text(RechargeMsg)
     ; true
     ), !.
 
 skip_turn :-
     writeln("You can only skip your turn during combat."), !.
+
+/* --- Enemy Helpers --- */
+
+living_enemy_here(Room) :-
+    location(hiss_guard, Room),
+    health(hiss_guard, HP),
+    HP > 0,
+    has(jesse, service_weapon).  % only "real" if player can see/fight it
 
 /* --- Game Start --- */
 
@@ -459,18 +477,20 @@ start :-
 /* --- Game Loop --- */
 
 game_loop :-
-    repeat,
     write("> "),
     read_line_to_string(user_input, Line),
     string_lower(Line, Lower),
     split_string(Lower, " ", " \t", Words0),
-    maplist(clean_token_smart, Words0, Words),          % use smart cleaning
+    maplist(clean_token_smart, Words0, Words),
     maplist(atom_string, Tokens, Words),
     (   parse(Tokens, Command)
     ->  dispatch(Command),
-        ( Command = quit -> ! ; fail )            % <--- fail unless quitting
+        ( Command = quit
+        -> true
+        ;  game_loop
+        )
     ;   writeln("I don't understand."),
-        fail
+        game_loop
     ).
 
 /* --- Parser --- */
@@ -524,7 +544,7 @@ parse([start, over], restart).
 
 dispatch(look) :- !, describe_here.
 dispatch(look_at(Obj)) :- !, look_at(Obj).
-dispatch(go(Dir)) :- !, move(jesse, Dir), !, describe_here, !.
+dispatch(go(Dir)) :- !, move(jesse, Dir, Moved), ( Moved = moved -> describe_here ; true ).
 dispatch(talk(ahti)) :- !, talk_to(ahti).
 dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
@@ -545,20 +565,21 @@ dispatch(Cmd) :- format("I don't know how to handle: ~w~n", [Cmd]).
 /* --- Tutorial Text --- */
 show_help :-
     map_text("=== COMMANDS ==="),
-    normal_text("Movement: go north | go south | go east | go west | enter"),
-    normal_text("Look:     look | look at <thing>"),
-    normal_text("Map:      map | show map"),
-    normal_text("Read:     read | read <note_name>"),
-    normal_text("Items:    take <item> | pick up <item>"),
-    normal_text("Talk:     talk <npc>"),
-    normal_text("Unlock:   unlock <item> <code>"),
-    normal_text("Combat:   attack <enemy>"),
-    normal_text("Skip:     skip | wait (let enemy attack, recharge weapon)"),
-    normal_text("Health:   health | status"),
-    normal_text("Charge:   charge (show weapon charge)"),
-    normal_text("Restart:  restart | new game | start over"),
-    normal_text("Help:     help"),
-    normal_text("Quit:     quit"),
+    normal_text("Movement:  go north | go south | go east | go west | enter"),
+    normal_text("Look:      look | look at <thing>"),
+    normal_text("Map:       map | show map"),
+    normal_text("Read:      read | read <note_name>"),
+    normal_text("Items:     take <item> | pick up <item>"),
+    normal_text("Inventory: inventory | inv | i"),
+    normal_text("Talk:      talk <npc>"),
+    normal_text("Unlock:    unlock <item> <code>"),
+    normal_text("Combat:    attack <enemy>"),
+    normal_text("Skip:      skip | wait (let enemy attack, recharge weapon)"),
+    normal_text("Health:    health | status"),
+    normal_text("Charge:    charge (show weapon charge)"),
+    normal_text("Restart:   restart | new game | start over"),
+    normal_text("Help:      help"),
+    normal_text("Quit:      quit"),
     map_text("----------------"),
     highlight_text("OBJECTIVE: Find your estranged brother in the mysterious Oldest House."),
     map_text("================").
@@ -609,30 +630,45 @@ outside_message(_) :-
 outside_attempts(0).
 
 /* --- Movement --- */
-move(jesse, Dir) :-
+move(jesse, Dir, blocked) :-
     location(jesse, street),
     Dir \= enter,
     \+ connected(street, _, Dir),
     funny_outside_message,
     !.
 
-move(Actor, Dir) :-
-    location(Actor, Room),
-    Room = janitor_hall,
-    Dir = east,
+move(jesse, _, blocked) :-
+    location(jesse, Room),
+    living_enemy_here(Room),
+    !,
+    highlight_text("You can't leave — there's still an enemy here!").
+
+move(jesse, north, blocked) :-
+    location(jesse, lobby),
+    \+ has(jesse, keys),
+    !,
+    highlight_text("The door to the upper hall is locked. You need keys to open it.").
+
+move(jesse, west, blocked) :-
+    location(jesse, lobby),
+    \+ has(jesse, lab77_key),
+    !,
+    highlight_text("The door to Lab 77 is sealed and locked. You need a key to open it.").
+
+move(jesse, east, blocked) :-
+    location(jesse, janitor_hall),
     \+ has(jesse, service_weapon),
     !,
-    speak(ahti, "'The Service Weapon... you will need it. The deeper places demand it. \
-Without it, the shadows will consume you. Go. Retrieve what was left behind.'").
+    speak(ahti, "'The Service Weapon... you will need it. The deeper places demand it. Without it, the shadows will consume you. Go. Retrieve what was left behind.'").
 
-move(Actor, Dir) :-
+move(Actor, Dir, moved) :-
     location(Actor, Room),
     connected(Room, Next, Dir),
     !,
     retract(location(Actor, Room)),
     assert(location(Actor, Next)).
 
-move(_, _) :-
+move(_, _, blocked) :-
     writeln("You can't go that way.").
 
 /* --- Descriptions --- */
@@ -748,27 +784,27 @@ describe_here :-
 list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
     ( Others = [] -> true
-    ; FilteredOthers = Others,
-      ( Room = upper_hall, \+ has(jesse, service_weapon)
-      -> FilteredOthers = []
-      ; FilteredOthers = Others
-      ),
-      ( FilteredOthers = [] -> true
-      ; format(string(S),"You see: ~w",[FilteredOthers]),
-        highlight_text(S),
-        ( member(ahti, FilteredOthers)
-        -> tip_text("Tip: perhaps you could 'talk ahti' while you're here."),
-           space_if_color_changed
-        ; member(vendor, FilteredOthers)
-        -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
-           space_if_color_changed
-        ; member(hiss_guard, FilteredOthers)
-        -> tip_text("Tip: use 'attack' to deal damage to the Hiss Guard!"),
-           space_if_color_changed
-        ; true
+    ;   include(visible_npc, Others, FilteredOthers),
+        ( FilteredOthers = [] -> true
+        ; format(string(S),"You see: ~w",[FilteredOthers]),
+          highlight_text(S),
+          ( member(ahti, FilteredOthers), has(jesse, service_weapon)
+          -> tip_text("Tip: perhaps you could 'talk ahti' while you're here."),
+             space_if_color_changed
+          ; member(vendor, FilteredOthers)
+          -> tip_text("Tip: perhaps you could 'talk vendor' while you're here."),
+             space_if_color_changed
+          ; member(hiss_guard, FilteredOthers)
+          -> tip_text("Tip: use 'attack' to deal damage to the Hiss Guard!"),
+             space_if_color_changed
+          ; true
+          )
         )
-      )
     ).
+
+visible_npc(hiss_guard) :- has(jesse, service_weapon), !.
+visible_npc(hiss_guard) :- !, fail.
+visible_npc(_).
 
 list_items(Room) :-
     findall(I, object(I, Room), Items),
