@@ -81,6 +81,9 @@ speak(ahti, Text)   :- ansi_format([fg(red), italic], '~w~n', [Text]).
 speak(vendor, Text) :- ansi_format([fg(red), italic], '~w~n', [Text]).
 speak(_, Text)      :- normal_text(Text).
 
+note_text(Text) :-
+    ansi_format([fg(red), italic], '~w~n', [Text]).
+
 :- endif.
 
 /* --- Initial State --- */
@@ -319,9 +322,9 @@ read_notes(all) :-
     location(jesse, Room),
     findall(Id-Text, (note(Room,Id,Text), \+ read_note(Room,Id)), Pairs),
     ( Pairs = []
-    -> color_ln(red, "There's nothing to read here.")
+    -> note_text("There's nothing to read here.")
     ; forall(member(Id-Text, Pairs),
-             ( color_ln(red, Text),
+             ( note_text(Text),
                assertz(read_note(Room,Id))
              ))
     ).
@@ -331,11 +334,11 @@ read_notes(Name) :-
     location(jesse, Room),
     ( note(Room, Name, Text)
     -> ( read_note(Room, Name)
-       -> color_ln(red, "You've already read that.")
-       ;  color_ln(red, Text),
+       -> note_text("You've already read that.")
+       ;  note_text(Text),
           assertz(read_note(Room, Name))
        )
-    ;  color_ln(red, "No such note here.")
+    ;  note_text("No such note here.")
     ).
 
 /* --- Dialogue --- */
@@ -530,9 +533,7 @@ show_help :-
 show_health :-
     health(jesse, HP),
     max_health(jesse, MaxHP),
-    weapon_charge(jesse, Charge),
-    max_weapon_charge(jesse, MaxCharge),
-    format(atom(Msg), "Current Health: ~w/~w | Weapon Charge: ~w/~w", [HP, MaxHP, Charge, MaxCharge]),
+    format(atom(Msg), "Health: ~w/~w", [HP, MaxHP]),
     highlight_text(Msg).
 
 show_charge :-

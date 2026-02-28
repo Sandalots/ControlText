@@ -31,8 +31,9 @@
     .map       { color: #00e5ff; font-family: 'Courier New', Courier, monospace; }
     .tip       { color: #ff66ff; font-weight: bold; }
     .speak     { color: #ff4444; font-style: italic; }
-    .error     { color: #ff4444; }
+    .error     { color: #ff4444; font-style: italic; }
     .echo      { color: #555; }
+    .spacer    { display: block; height: 0.5em; }   /* blank spacing line */
     #input-row {
       display: flex;
       gap: 8px;
@@ -62,6 +63,7 @@
       cursor: pointer;
     }
     #send-btn:hover { background: #1a1a1a; }
+    .note   { color: #ff4444; font-style: italic; }
   </style>
 </head>
 <body>
@@ -85,8 +87,11 @@
     function appendLines(lines) {
       lines.forEach(l => {
         const div = document.createElement('div');
-        div.className = 'line ' + (l.style || 'normal');
-        div.textContent = stripAnsi(l.text || '');
+        const style = l.style || 'normal';
+        div.className = 'line ' + style;
+        if (style !== 'spacer') {
+          div.textContent = stripAnsi(l.text || '');
+        }
         output.appendChild(div);
       });
       output.scrollTop = output.scrollHeight;

@@ -7,15 +7,29 @@
 
 /* --- Output buffer --- */
 :- dynamic output_buffer/1.
+:- dynamic last_buf_style/1.
+
 output_buffer([]).
+last_buf_style(none).
 
 buf_add(Style, Text) :-
+    % insert a spacer whenever the style changes (but not on first line)
+    last_buf_style(Last),
+    ( Last \= none, Last \= Style
+    -> retract(output_buffer(Buf0)),
+       assertz(output_buffer([_{text:"", style:spacer}|Buf0]))
+    ; true
+    ),
     retract(output_buffer(Buf)),
-    assertz(output_buffer([_{text:Text, style:Style}|Buf])).
+    assertz(output_buffer([_{text:Text, style:Style}|Buf])),
+    retractall(last_buf_style(_)),
+    assertz(last_buf_style(Style)).
 
 buf_flush(Lines) :-
     retract(output_buffer(Buf)),
     assertz(output_buffer([])),
+    retractall(last_buf_style(_)),
+    assertz(last_buf_style(none)),
     reverse(Buf, Lines).
 
 /* --- Output predicates (web versions) --- */
@@ -26,14 +40,20 @@ normal_text(Text)    :- buf_add(normal, Text).
 highlight_text(Text) :- buf_add(highlight, Text).
 map_text(Text)       :- buf_add(map, Text).
 tip_text(Text)       :- buf_add(tip, Text).
-color_ln(_, Text)    :- buf_add(normal, Text).
-space_if_color_changed.
+note_text(Text)      :- buf_add(note, Text).
 speak(_, Text)       :- buf_add(speak, Text).
 
-% Catch stray writeln/1 calls
+color_ln(red, Text)    :- buf_add(note, Text).
+color_ln(yellow, Text) :- buf_add(highlight, Text).
+color_ln(cyan, Text)   :- buf_add(map, Text).
+color_ln(_, Text)      :- buf_add(normal, Text).
+
+% space_if_color_changed is handled automatically by buf_add style tracking
+space_if_color_changed.
+
+% Catch stray writeln calls
 writeln(Text) :-
-    term_to_atom(Text, A),
-    atom_string(A, S),
+    term_to_atom(Text, A), atom_string(A, S),
     buf_add(normal, S).
 
 /* --- Load game AFTER output overrides --- */
@@ -47,8 +67,6 @@ writeln(Text) :-
 
 serve_index(Request) :-
     http_reply_file('index.html', [], Request).
-
-/* --- Handlers --- */
 
 handle_start(_Request) :-
     reset_game,
@@ -72,8 +90,6 @@ handle_command(Request) :-
     ),
     buf_flush(Lines),
     reply_json_dict(_{lines: Lines, ok: true}).
-
-/* --- Game init for web --- */
 
 init_game_output :-
     location(jesse, Room),
@@ -99,7 +115,9 @@ reset_game :-
     retractall(outside_attempts(_)),
     retractall(object(_, _)),
     retractall(last_color(_)),
+    retractall(last_buf_style(_)),
     assertz(last_color(default)),
+    assertz(last_buf_style(none)),
     assertz(location(jesse, street)),
     assertz(location(ahti, janitor_hall)),
     assertz(location(hiss_guard, upper_hall)),
@@ -121,7 +139,6 @@ reset_game :-
     assertz(object(health_kit, security_post)),
     assertz(object(health_kit, records_room)).
 
-/* --- Start --- */
 :- initialization(
     ( reset_game,
       http_server(http_dispatch, [port(8081)]),
