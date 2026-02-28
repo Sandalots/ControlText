@@ -10,9 +10,11 @@
 
 :- dynamic location/2.
 :- dynamic health/2.
+:- dynamic max_health/2.
 :- dynamic has/2.
 :- dynamic read_note/2.
 :- dynamic object/2.
+:- discontiguous health/2.
 :- use_module(library(pcre)).        % for re_replace/4
 :- use_module(library(ansi_term)).   % for colour output
 
@@ -50,6 +52,7 @@ location(hiss_guard, upper_hall).
 location(vendor, food_vendor).
 
 health(jesse, 100).
+max_health(jesse, 100).
 health(hiss_guard, 30).
 
 /* --- Map --- */
@@ -67,6 +70,9 @@ connected(west_road, street, east).         % was south
 
 connected(lobby, janitor_hall, east).
 connected(janitor_hall, lobby, west).
+
+connected(janitor_hall, toilets, north).
+connected(toilets, janitor_hall, south).
 
 connected(janitor_hall, atrium, east) :-
     has(jesse, service_weapon).
@@ -117,6 +123,10 @@ description(lobby,
 description(janitor_hall,
 "A narrow hallway. Ahti leans on his mop, watching you.").
 
+description(toilets,
+"A dimly lit bathroom. The smell of industrial cleaner hangs in the air. \
+A first aid kit sits on the counter, weathered and faded.").
+
 description(atrium,
 "A vast circular chamber with high vaulted ceilings. Strange geometric patterns \
 cover the floor, seeming to shift and breathe with an otherworldly rhythm. \
@@ -143,6 +153,7 @@ object(service_weapon, directors_office).
 object(locked_box, food_vendor).
 object(smash, lab77).
 object(health_upgrade, secret_chamber).
+object(health_upgrade, toilets).
 object(health_kit, lobby).
 
 /* --- Notes --- */
@@ -343,6 +354,8 @@ parse([pick, up, Item], take(Item)).
 
 parse([quit], quit).
 parse([help], help).
+parse([health], health).
+parse([status], health).
 
 parse([enter], go(enter)).
 parse([go, inside], go(enter)).
@@ -378,6 +391,7 @@ dispatch(attack(hiss_guard)) :- !, combat(jesse, hiss_guard).
 dispatch(unlock(Item, Code)) :- !, unlock_item(Item, Code).
 dispatch(restart) :- !, restart_game.
 dispatch(read(Name)) :- !, read_notes(Name).
+dispatch(health) :- !, show_health.
 dispatch(map) :- !, location(jesse, Room), show_map(Room).
 dispatch(quit) :- !, writeln("You step back from the House.").
 dispatch(help) :- !, show_help.
@@ -395,12 +409,18 @@ show_help :-
     normal_text("Talk:     talk <npc>"),
     normal_text("Unlock:   unlock <item> <code>"),
     normal_text("Combat:   attack <enemy>"),
+    normal_text("Health:   health | status"),
     normal_text("Restart:  restart | new game | start over"),
     normal_text("Help:     help"),
     normal_text("Quit:     quit"),
     map_text("----------------"),
     highlight_text("OBJECTIVE: Find your estranged brother in the mysterious Oldest House."),
     map_text("================").
+
+show_health :-
+    health(jesse, HP),
+    max_health(jesse, MaxHP),
+    format("Current Health: ~w/~w~n", [HP, MaxHP]).
 
 /* Funny Text */
 funny_outside_message :-
@@ -608,26 +628,34 @@ take_item(Item) :-
     atom_string(ObjAtom, ObjLower),
     ( ObjAtom = ItemAtom ; atom_concat(ItemAtom, 's', ObjAtom) ; atom_concat(ObjAtom, 's', ItemAtom) ),
     !,
-    retract(object(MatchObj, Room)),
-    assertz(has(jesse, MatchObj)),
     ( MatchObj = health_upgrade
-    -> health(jesse, HP),
-       NewHP is min(100, HP + 5),
+    -> max_health(jesse, MaxHP),
+       retract(object(MatchObj, Room)),
+       NewMaxHP is MaxHP + 5,
+       retract(max_health(jesse, MaxHP)),
+       assert(max_health(jesse, NewMaxHP)),
+       health(jesse, HP),
+       NewHP is min(NewMaxHP, HP + 5),
        retract(health(jesse, HP)),
        assert(health(jesse, NewHP)),
+       assertz(has(jesse, MatchObj)),
        highlight_text("The health upgrade glows and merges with you!"),
-       format("Health increased to ~w/100~n", [NewHP])
+       format("Max health increased from ~w to ~w/~w~n", [MaxHP, NewHP, NewMaxHP])
     ; MatchObj = health_kit
     -> health(jesse, HP),
-       ( HP >= 100
-       -> highlight_text("You are already at full health."),
-          retractall(has(jesse, health_kit))
+       max_health(jesse, MaxHP),
+       retract(object(MatchObj, Room)),
+       ( HP >= MaxHP
+       -> highlight_text("You are already at full health.")
        ; retract(health(jesse, HP)),
-         assert(health(jesse, 100)),
+         assert(health(jesse, MaxHP)),
+         assertz(has(jesse, MatchObj)),
          highlight_text("You use the health kit and restore yourself to full health!"),
-         format("Health restored to 100/100~n", [])
+         format("Health restored to ~w/~w~n", [MaxHP, MaxHP])
        )
-    ; format("You take the ~w.~n", [MatchObj])
+    ; retract(object(MatchObj, Room)),
+      assertz(has(jesse, MatchObj)),
+      format("You take the ~w.~n", [MatchObj])
     ).
 
 take_item(Item) :-
@@ -665,6 +693,7 @@ restart_game :-
     % retract all dynamic state
     retractall(location(_, _)),
     retractall(health(_, _)),
+    retractall(max_health(_, _)),
     retractall(has(_, _)),
     retractall(read_note(_, _)),
     retractall(outside_attempts(_)),
@@ -676,6 +705,7 @@ restart_game :-
     assertz(location(hiss_guard, upper_hall)),
     assertz(location(vendor, food_vendor)),
     assertz(health(jesse, 100)),
+    assertz(max_health(jesse, 100)),
     assertz(health(hiss_guard, 30)),
     assertz(outside_attempts(0)),
     assertz(object(keys, lobby)),
@@ -683,6 +713,7 @@ restart_game :-
     assertz(object(locked_box, food_vendor)),
     assertz(object(smash, lab77)),
     assertz(object(health_upgrade, secret_chamber)),
+    assertz(object(health_upgrade, toilets)),
     assertz(object(health_kit, lobby)),
     
     % restart game
