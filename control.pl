@@ -132,6 +132,7 @@ object(service_weapon, directors_office).
 object(locked_box, food_vendor).
 object(smash, lab77).
 object(health_upgrade, secret_chamber).
+object(health_kit, lobby).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -358,7 +359,7 @@ parse([start, over], restart).
 
 dispatch(look) :- !, describe_here.
 dispatch(look_at(Obj)) :- !, look_at(Obj).
-dispatch(go(Dir)) :- !, move(jesse, Dir), describe_here.
+dispatch(go(Dir)) :- !, move(jesse, Dir), !, describe_here, !.
 dispatch(talk(ahti)) :- !, talk_to(ahti).
 dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
@@ -535,6 +536,7 @@ show_map(Current) :-
 
 describe_here :-
     location(jesse, Room),
+    !,
     show_map(Room),
     description(Room, Desc),
     normal_text(Desc),
@@ -588,6 +590,16 @@ take_item(Item) :-
        assert(health(jesse, NewHP)),
        highlight_text("The health upgrade glows and merges with you!"),
        format("Health increased to ~w/100~n", [NewHP])
+    ; MatchObj = health_kit
+    -> health(jesse, HP),
+       ( HP >= 100
+       -> highlight_text("You are already at full health."),
+          retractall(has(jesse, health_kit))
+       ; retract(health(jesse, HP)),
+         assert(health(jesse, 100)),
+         highlight_text("You use the health kit and restore yourself to full health!"),
+         format("Health restored to 100/100~n", [])
+       )
     ; format("You take the ~w.~n", [MatchObj])
     ).
 
@@ -644,6 +656,7 @@ restart_game :-
     assertz(object(locked_box, food_vendor)),
     assertz(object(smash, lab77)),
     assertz(object(health_upgrade, secret_chamber)),
+    assertz(object(health_kit, lobby)),
     
     % restart game
     normal_text("Game restarted!"),
