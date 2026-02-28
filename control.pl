@@ -199,12 +199,9 @@ list_notes(Room) :-
     findall(Id, (note(Room,Id,_), \+ read_note(Room,Id)), Unread),
     ( Unread = [] -> true
     ; atomic_list_concat(Unread, ', ', IdStr),
-      format(string(S),
-             "Unread notes here: ~w. Use 'read <name>' to examine one.",
-             [IdStr]),
-      highlight_text("Unread notes here: "),
-      color_ln(red, IdStr),
-      highlight_text("Use 'read <name>' to examine one.")
+      ansi_format([fg(yellow)], "Unread notes here: ", []),
+      ansi_format([fg(red)], "~w", [IdStr]),
+      ansi_format([fg(yellow)], ". Use 'read <name>' to examine one.~n", [])
     ).
 
 % read all notes in current location, mark them as read
@@ -594,9 +591,9 @@ list_items(Room) :-
     findall(I, object(I, Room), Items),
     ( Items = [] -> true
     ; atomic_list_concat(Items, ', ', ItemStr),
-      highlight_text("Items here: "),
-      color_ln(red, ItemStr),
-      highlight_text("Use 'take <item>' to pick something up.")
+      ansi_format([fg(yellow)], "Items here: ", []),
+      ansi_format([fg(red)], "~w", [ItemStr]),
+      ansi_format([fg(yellow)], ". Use 'take <item>' to pick something up.~n", [])
     ).
 
 take_item(Item) :-
