@@ -1576,8 +1576,6 @@ restart_game :-
     normal_text("Game restarted!"),
     init_game_output.
 
-% Change the final line — only auto-start when loaded directly, not as a library
-% Replace the existing :- initialization line at the bottom with:
 :- if(\+ current_module(server)).
 :- initialization(start, main).
 :- endif.
