@@ -209,6 +209,8 @@ connected(records_room, upper_hall, east).
 % Add connection after directors_office/upper_hall connections:
 connected(directors_office, demolition_room, north).
 connected(demolition_room, directors_office, south).
+connected(demolition_room, death_room, north).
+connected(death_room, demolition_room, south).
 
 /* --- Room Descriptions --- */
 
@@ -276,6 +278,11 @@ description(demolition_room,
 Debris litters the floor. In the centre, hovering inches above a scorched pedestal, \
 a translucent hexagonal shield pulses with a pale blue light. \
 An Object of Power. It knows you're here.").
+
+description(death_room,
+"The air tears open. A wall of pure resonant noise hits you like a physical blow. \
+The Hiss is not here — the Hiss IS here, everywhere, in every atom of the room. \
+You had one second to reconsider. You didn't take it.").
 
 /* --- Items --- */
 object(keys, lobby).
@@ -379,6 +386,12 @@ note(directors_office, memo_to_staff,
     "An unsent memo: 'To all Bureau staff — the situation is under control. \
 Please disregard the sounds coming from the walls. This is normal. \
 Everything is normal. —Director'").
+
+note(demolition_room, important,
+    "*** IMPORTANT *** Scrawled in large, frantic letters across a torn Bureau memo: \
+'DO NOT ENTER THE ROOM TO THE NORTH. I REPEAT — DO NOT ENTER. \
+Three agents went in. None came back. Whatever is in there is not containable. \
+It is not survivable. Turn around. GO SOUTH. —Last surviving member of Retrieval Team 7'").
 
 note(atrium, cat_plinth,
     "A circular stone plinth sits at the centre of the atrium floor. \
@@ -919,7 +932,10 @@ dispatch(look) :- !, describe_here.
 dispatch(look_at(Obj)) :- !, look_at(Obj).
 dispatch(go(Dir)) :- !,
     move(jesse, Dir, Moved),
-    ( Moved = moved -> describe_here ; true ).
+    ( game_over -> true
+    ; Moved = moved -> describe_here
+    ; true
+    ).
 dispatch(talk(ahti)) :- !, talk_to(ahti).
 dispatch(talk(vendor)) :- !, talk_to(vendor).
 dispatch(take(Obj)) :- !, take_item(Obj).
@@ -1270,6 +1286,7 @@ infectable_room(lab77).
 infectable_room(toilets).
 infectable_room(food_vendor).
 infectable_room(secret_chamber).
+infectable_room(death_room).
 
 room_name(lobby,            'The Lobby').
 room_name(atrium,           'The Atrium').
@@ -1282,6 +1299,7 @@ room_name(lab77,            'Lab 77').
 room_name(toilets,          'The Toilets').
 room_name(food_vendor,      'Food Vendor').
 room_name(secret_chamber,   'Secret Chamber').
+room_name(death_room,       'The Death Room').
 room_name(Room,             Room).
 
 room_enemy_free(Room) :-
@@ -1321,7 +1339,15 @@ maybe_infect(Room) :-
     ).
 
 infection_check(Room) :-
-    ( weapon_just_taken
+    ( Room = death_room
+    -> assertz(game_over),
+       highlight_text(""),
+       highlight_text("╔═══════════════════════════════════╗"),
+       highlight_text("║           GAME  OVER              ║"),
+       highlight_text("╚═══════════════════════════════════╝"),
+       normal_text("The Death Room claims you. Some doors should never be opened."),
+       normal_text("Type 'restart' to try again.")
+    ; weapon_just_taken
     -> retract(weapon_just_taken)
     ; has(jesse, service_weapon),
       infectable_room(Room)
