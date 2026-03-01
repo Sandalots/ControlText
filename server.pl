@@ -144,7 +144,10 @@ reset_game :-
     assertz(object(charge_upgrade, atrium)),
     assertz(object(health_kit, lobby)),
     assertz(object(health_kit, security_post)),
-    assertz(object(health_kit, records_room)).
+    assertz(object(health_kit, records_room)),
+    assertz(object(cat_statue, upper_hall)),
+    assertz(object(flower, street)),
+    assertz(object(shield, demolition_room)).
 
 :- initialization(
     ( reset_game,

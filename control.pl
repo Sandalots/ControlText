@@ -23,6 +23,7 @@
 :- dynamic hiss_infected/1.
 :- dynamic weapon_just_taken/0.
 :- dynamic cat_statue_placed/0.
+:- dynamic shield_active/0.
 :- discontiguous health/2.
 :- discontiguous combat/2.
 :- discontiguous visible_npc/1.
@@ -205,6 +206,10 @@ connected(security_post, upper_hall, west).
 connected(upper_hall, records_room, west).
 connected(records_room, upper_hall, east).
 
+% Add connection after directors_office/upper_hall connections:
+connected(directors_office, demolition_room, north).
+connected(demolition_room, directors_office, south).
+
 /* --- Room Descriptions --- */
 
 description(street,
@@ -266,6 +271,12 @@ description(lab77,
 description(secret_chamber,
 "A hidden chamber behind a crumbled wall. Strange equipment covers the shelves. Your brother sits slumped in a chair, eyes closed.").
 
+description(demolition_room,
+"A ruined chamber, walls blasted inward as if by some enormous force. \
+Debris litters the floor. In the centre, hovering inches above a scorched pedestal, \
+a translucent hexagonal shield pulses with a pale blue light. \
+An Object of Power. It knows you're here.").
+
 /* --- Items --- */
 object(keys, lobby).
 object(service_weapon, directors_office).
@@ -279,6 +290,7 @@ object(health_kit, records_room).
 object(charge_upgrade, atrium).
 object(cat_statue, upper_hall).
 object(flower, street).
+object(shield, demolition_room).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -670,18 +682,23 @@ enemy_turn :-
          assertz(health_kit_tip_shown)
        )
     ;  normal_text("The Hiss Guard lashes out!"),
-       health(jesse, JHP),
-       NewJHP is JHP - 25,
-       retract(health(jesse, JHP)),
-       assert(health(jesse, NewJHP)),
-       max_health(jesse, MaxHP),
-       format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
-       highlight_text(HealthMsg),
-       weapon_charge(jesse, Charge),
-       max_weapon_charge(jesse, MaxCharge),
-       format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
-       highlight_text(ChargeMsg),
-       check_death
+       ( shield_active
+       -> retract(shield_active),
+          highlight_text("The shield absorbs the blow! You take no damage."),
+          highlight_text("The shield's barrier dissipates.")
+       ;  health(jesse, JHP),
+          NewJHP is JHP - 25,
+          retract(health(jesse, JHP)),
+          assert(health(jesse, NewJHP)),
+          max_health(jesse, MaxHP),
+          format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
+          highlight_text(HealthMsg),
+          weapon_charge(jesse, Charge),
+          max_weapon_charge(jesse, MaxCharge),
+          format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
+          highlight_text(ChargeMsg),
+          check_death
+       )
     ).
 
 enemy_turn_guard_b :-
@@ -697,18 +714,23 @@ enemy_turn_guard_b :-
        format(atom(RechargeMsg), "Service Weapon recharged to ~w/~w.", [MaxCharge, MaxCharge]),
        highlight_text(RechargeMsg)
     ;  normal_text("The Hiss Guard lashes out!"),
-       health(jesse, JHP),
-       NewJHP is JHP - 25,
-       retract(health(jesse, JHP)),
-       assert(health(jesse, NewJHP)),
-       max_health(jesse, MaxHP),
-       format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
-       highlight_text(HealthMsg),
-       weapon_charge(jesse, Charge),
-       max_weapon_charge(jesse, MaxCharge),
-       format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
-       highlight_text(ChargeMsg),
-       check_death
+       ( shield_active
+       -> retract(shield_active),
+          highlight_text("The shield absorbs the blow! You take no damage."),
+          highlight_text("The shield's barrier dissipates.")
+       ;  health(jesse, JHP),
+          NewJHP is JHP - 25,
+          retract(health(jesse, JHP)),
+          assert(health(jesse, NewJHP)),
+          max_health(jesse, MaxHP),
+          format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
+          highlight_text(HealthMsg),
+          weapon_charge(jesse, Charge),
+          max_weapon_charge(jesse, MaxCharge),
+          format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
+          highlight_text(ChargeMsg),
+          check_death
+       )
     ).
 
 check_death :-
@@ -887,6 +909,10 @@ parse([restart], restart).
 parse([new, game], restart).
 parse([start, over], restart).
 
+parse([shield], shield).
+parse([use, shield], shield).
+parse([activate, shield], shield).
+
 /* --- Command Dispatch --- */
 
 dispatch(look) :- !, describe_here.
@@ -929,6 +955,7 @@ dispatch(quit) :- !, normal_text("You step back from the House.").
 dispatch(help) :- !, show_help.
 dispatch(think(Name)) :- !, think_thought(Name).
 dispatch(place(Item)) :- !, place_item(Item).
+dispatch(shield) :- !, use_shield.
 
 dispatch(Cmd) :- format("I don't know how to handle: ~w~n", [Cmd]).
 
@@ -946,6 +973,7 @@ show_help :-
     normal_text("Place:     place <item> | put <item> down"),
     normal_text("Unlock:    unlock <item> <code>"),
     normal_text("Combat:    attack <enemy>"),
+    normal_text("Shield:    shield | use shield | activate shield"),
     normal_text("Skip:      skip | wait (let enemy attack, recharge weapon)"),
     normal_text("Health:    health | status"),
     normal_text("Charge:    charge (show weapon charge)"),
@@ -1354,18 +1382,23 @@ enemy_turn_infection(Enemy, Room) :-
        highlight_text(RechargeMsg),
        on_hiss_defeated(Room)
     ;  normal_text("The Hiss infection lashes out!"),
-       health(jesse, JHP),
-       NewJHP is JHP - 20,
-       retract(health(jesse, JHP)),
-       assertz(health(jesse, NewJHP)),
-       max_health(jesse, MaxHP),
-       format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
-       highlight_text(HealthMsg),
-       weapon_charge(jesse, Charge),
-       max_weapon_charge(jesse, MaxCharge),
-       format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
-       highlight_text(ChargeMsg),
-       check_death
+       ( shield_active
+       -> retract(shield_active),
+          highlight_text("The shield absorbs the blow! You take no damage."),
+          highlight_text("The shield's barrier dissipates.")
+       ;  health(jesse, JHP),
+          NewJHP is JHP - 20,
+          retract(health(jesse, JHP)),
+          assertz(health(jesse, NewJHP)),
+          max_health(jesse, MaxHP),
+          format(atom(HealthMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
+          highlight_text(HealthMsg),
+          weapon_charge(jesse, Charge),
+          max_weapon_charge(jesse, MaxCharge),
+          format(atom(ChargeMsg), "Weapon Charge: ~w/~w", [Charge, MaxCharge]),
+          highlight_text(ChargeMsg),
+          check_death
+       )
     ).
 
 list_items(Room) :-
@@ -1525,6 +1558,8 @@ restart_game :-
     assertz(object(health_kit, records_room)),
     assertz(object(cat_statue, upper_hall)),
     assertz(object(flower, street)),
+    assertz(object(shield, demolition_room)),
+    retractall(shield_active),
     % restart game
     normal_text("Game restarted!"),
     init_game_output.   % web-safe: no game_loop call
