@@ -103,6 +103,7 @@ thought_text(Text) :-
 
 visible_npc(ahti).
 visible_npc(vendor).
+visible_npc(dylan).
 visible_npc(E) :-
     is_hiss_enemy(E),
     has(jesse, service_weapon).
@@ -133,16 +134,18 @@ announce_enemies(Room) :-
 
 location(jesse, street).
 location(ahti, janitor_hall).
-% hiss_guard spawns when service_weapon is picked up
 location(hiss_brute, atrium).
 location(hiss_guard_b, containment_hall).
+location(hiss_boss, solitary).
 location(vendor, food_vendor).
+location(dylan, dylans_cell).
 
 health(jesse, 100).
 max_health(jesse, 100).
 % health(hiss_guard, 30) is asserted when service_weapon is picked up
 health(hiss_brute, 50).
 health(hiss_guard_b, 30).
+health(hiss_boss, 100).
 weapon_charge(jesse, 10).
 max_weapon_charge(jesse, 10).
 
@@ -245,6 +248,15 @@ description(containment_hall,
 hanging open and dark. The air smells of ozone and fear. A Hiss-infected guard \
 patrols the far end, twitching erratically.").
 
+description(solitary,
+"A cavernous solitary confinement block. The cells here are reinforced with \
+paranatural dampeners — thick runes etched into every surface. Most of the doors \
+have been torn clean off their hinges from the inside. \
+At the far end of the block, something massive stands perfectly still, \
+facing the wall. It turns slowly as you enter. \
+The Hiss Warden. It was left here to guard something. \
+Or someone.").
+
 description(upper_hall,
 "A long corridor leading deeper into the Bureau. The air hums with a faint \
 paranatural resonance. Doors line the walls, some hanging open, others sealed tight.").
@@ -294,10 +306,12 @@ object(health_upgrade, toilets).
 object(health_kit, lobby).
 object(health_kit, security_post).
 object(health_kit, records_room).
+object(health_kit, containment_hall).
 object(charge_upgrade, atrium).
 object(cat_statue, upper_hall).
 object(flower, street).
 object(shield, demolition_room).
+object(health_kit, solitary).
 
 /* --- Notes --- */
 % note(Room, Id, Text).
@@ -616,8 +630,48 @@ talk_to(vendor) :-
           "'Get your hyperreal hot‑dogs!  Two for one if you say the word \"bureau\"!'"),
     normal_text("He laughs maniacally and jots something down on a napkin."), !.
 
+talk_to(dylan) :-
+    location(jesse, dylans_cell),
+    !,
+    speak(dylan, "'Jesse.'"),
+    normal_text("He stands slowly. He looks like he hasn't slept in weeks. Maybe months."),
+    speak(dylan, "'I knew you'd come. I told them you would. They didn't believe me.'"),
+    normal_text("You don't say anything. There's nothing to say yet."),
+    speak(dylan, "'How bad is it out there?'"),
+    normal_text("You look at the Service Weapon in your hand. You think about every room you walked through to get here."),
+    speak(dylan, "'That bad. Okay.'"),
+    normal_text("He crosses the cell and stands beside you."),
+    speak(dylan, "'Let's go home, Jesse.'"),
+    normal_text(""),
+    normal_text("You walk out together. The House lets you."),
+    normal_text("For now, that's enough."),
+    normal_text(""),
+    show_credits.
+
 talk_to(_) :-
     normal_text("There's no one to talk to.").
+
+show_credits :-
+    map_text(""),
+    map_text("╔══════════════════════════════════════════╗"),
+    map_text("║               ~ FIN ~                    ║"),
+    map_text("╠══════════════════════════════════════════╣"),
+    map_text("║                                          ║"),
+    map_text("║   CONTROL - TEXT ADVENTURE               ║"),
+    map_text("║                                          ║"),
+    map_text("║   Written in Prolog                      ║"),
+    map_text("║                                          ║"),
+    map_text("║   Inspired by Remedy Entertainment's     ║"),
+    map_text("║   CONTROL (2019)                         ║"),
+    map_text("║                                          ║"),
+    map_text("║   Jesse found Dylan.                     ║"),
+    map_text("║   The House remains.                     ║"),
+    map_text("║   It always does.                        ║"),
+    map_text("║                                          ║"),
+    map_text("╚══════════════════════════════════════════╝"),
+    map_text(""),
+    highlight_text("Type 'restart' to play again or 'quit' to exit."),
+    assertz(game_over).
 
 /* --- Combat --- */
 
@@ -944,7 +998,9 @@ dispatch(attack) :-
     !,
     location(jesse, Room),
     ( living_enemy_here(Room)
-    -> ( location(hiss_brute, Room), health(hiss_brute, HP1), HP1 > 0
+    -> ( location(hiss_boss, Room), health(hiss_boss, HP0), HP0 > 0
+       -> combat(jesse, hiss_boss)
+       ;  location(hiss_brute, Room), health(hiss_brute, HP1), HP1 > 0
        -> combat(jesse, hiss_brute)
        ;  location(hiss_guard_b, Room), health(hiss_guard_b, HP2), HP2 > 0
        -> combat(jesse, hiss_guard_b)
@@ -1263,11 +1319,13 @@ list_occupants(Room) :-
 is_hiss_enemy(hiss_guard).
 is_hiss_enemy(hiss_guard_b).
 is_hiss_enemy(hiss_brute).
+is_hiss_enemy(hiss_boss).
 is_hiss_enemy(E) :- atom_concat(hiss_infection_, _, E).
 
 enemy_display_name(hiss_guard,   'Hiss Guard').
 enemy_display_name(hiss_guard_b, 'Hiss Guard').
 enemy_display_name(hiss_brute,   'Hiss Brute').
+enemy_display_name(hiss_boss,    'Hiss Warden').
 enemy_display_name(E, Name) :-
     atom_concat(hiss_infection_, _, E),
     Name = 'Hiss (Infection)'.
@@ -1291,6 +1349,8 @@ infectable_room(death_room).
 room_name(lobby,            'The Lobby').
 room_name(atrium,           'The Atrium').
 room_name(containment_hall, 'Containment Hall').
+room_name(solitary,         'Solitary Confinement').
+room_name(dylans_cell,      "Dylan's Cell").
 room_name(janitor_hall,     "Janitor's Hall").
 room_name(directors_office, "Director's Office").
 room_name(security_post,    'Security Post').
@@ -1578,14 +1638,16 @@ restart_game :-
     assertz(location(ahti, janitor_hall)),
     assertz(location(hiss_brute, atrium)),
     assertz(location(hiss_guard_b, containment_hall)),
+    assertz(location(hiss_boss, solitary)),
     assertz(location(vendor, food_vendor)),
+    assertz(location(dylan, dylans_cell)),
     assertz(health(jesse, 100)),
     assertz(max_health(jesse, 100)),
     assertz(weapon_charge(jesse, 10)),
     assertz(max_weapon_charge(jesse, 10)),
     assertz(health(hiss_brute, 50)),
     assertz(health(hiss_guard_b, 30)),
-    assertz(outside_attempts(0)),
+    assertz(health(hiss_boss, 100)),
     assertz(object(keys, lobby)),
     assertz(object(service_weapon, directors_office)),
     assertz(object(locked_box, food_vendor)),
@@ -1596,6 +1658,8 @@ restart_game :-
     assertz(object(health_kit, lobby)),
     assertz(object(health_kit, security_post)),
     assertz(object(health_kit, records_room)),
+    assertz(object(health_kit, containment_hall)),
+    assertz(object(health_kit, solitary)),
     assertz(object(cat_statue, upper_hall)),
     assertz(object(flower, street)),
     assertz(object(shield, demolition_room)).
