@@ -1303,9 +1303,9 @@ infect_room(Room) :-
     room_name(Room, RoomName),
     ( location(jesse, Room)
     -> atomic_list_concat(['!! HISS INFECTION AT ', RoomName, ' — AN ENEMY HAS APPEARED HERE !!'], Alert),
-       highlight_text(Alert)
+       note_text(Alert)
     ;  atomic_list_concat(['[ALERT] Hiss infection detected at ', RoomName, '.'], Alert),
-       highlight_text(Alert)
+       note_text(Alert)
     ).
 
 maybe_true(Prob) :-
@@ -1534,6 +1534,7 @@ restart_game :-
     retractall(read_note(_, _)),
     retractall(outside_attempts(_)),
     retractall(object(_, _)),
+    retractall(shield_active),
     assertz(location(jesse, street)),
     assertz(location(ahti, janitor_hall)),
     assertz(location(hiss_brute, atrium)),
@@ -1559,10 +1560,8 @@ restart_game :-
     assertz(object(cat_statue, upper_hall)),
     assertz(object(flower, street)),
     assertz(object(shield, demolition_room)),
-    retractall(shield_active),
-    % restart game
     normal_text("Game restarted!"),
-    init_game_output.   % web-safe: no game_loop call
+    init_game_output.
 
 % Change the final line — only auto-start when loaded directly, not as a library
 % Replace the existing :- initialization line at the bottom with:
