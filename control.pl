@@ -1518,6 +1518,19 @@ unlock_item(Item, Code) :-
       color_ln(red, S)
     ).
 
+use_shield :-
+    ( \+ has(jesse, shield)
+    -> normal_text("You don't have a shield to use.")
+    ;  shield_active
+    -> highlight_text("Your shield is already active — it will absorb the next hit.")
+    ;  location(jesse, Room),
+       \+ living_enemy_here(Room)
+    -> normal_text("There's no enemy here. Save the shield for when you need it.")
+    ;  assertz(shield_active),
+       highlight_text("You raise the hexagonal shield. A pale blue barrier crackles around you."),
+       tip_text("The shield will absorb the next enemy hit, then dissipate.")
+    ).
+
 restart_game :-
     retractall(game_over),
     retractall(health_kit_tip_shown),
