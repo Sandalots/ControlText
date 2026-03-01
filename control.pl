@@ -1598,9 +1598,7 @@ restart_game :-
     assertz(object(health_kit, records_room)),
     assertz(object(cat_statue, upper_hall)),
     assertz(object(flower, street)),
-    assertz(object(shield, demolition_room)),
-    normal_text("Game restarted!"),
-    init_game_output.
+    assertz(object(shield, demolition_room)).
 
 :- if(\+ current_module(server)).
 :- initialization(start, main).

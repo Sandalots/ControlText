@@ -85,7 +85,12 @@ handle_command(Request) :-
     maplist(atom_string, Tokens, Words),
     ( Tokens \= [''] ->
         ( parse(Tokens, Command)
-        -> dispatch(Command)
+        -> ( Command = restart
+           -> reset_game,
+              buf_add(normal, "Game restarted!"),
+              init_game_output
+           ;  dispatch(Command)
+           )
         ;  buf_add(error, "I don't understand.")
         )
     ; true
