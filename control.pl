@@ -1463,7 +1463,7 @@ show_help :-
     normal_text("Help:      help"),
     normal_text("Quit:      quit"),
     map_text("----------------"),
-    highlight_text("OBJECTIVE: Find your estranged brother in the mysterious Oldest House."),
+    highlight_text("OBJECTIVE: Find your estranged brother, Dylan in the mysterious Oldest House."),
     map_text("================").
 
 show_health :-
