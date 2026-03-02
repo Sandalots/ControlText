@@ -1897,6 +1897,14 @@ hiss_attack_line(Name, Line) :-
     random_member(Template, Templates),
     format(string(Line), Template, [Name]).
 
+%% miss_shot/0 — 10% chance: shot goes wide, consumes 1 charge, enemy still retaliates
+miss_shot :-
+    normal_text("Service Weapon misfire!"),
+    weapon_charge(jesse, C),
+    NewC is max(0, C - 1),
+    retractall(weapon_charge(jesse, _)),
+    assertz(weapon_charge(jesse, NewC)).
+
 /* --- Hiss Guard (spawned in upper_hall when service_weapon is taken) ---
    HP: 30  |  Player damage: 10/shot  |  Retaliates: 25 damage
    Three clauses (ordered, each cut):
@@ -1909,18 +1917,18 @@ combat(jesse, hiss_spawn) :-
     normal_text("You reach for a weapon... but you don't have the Service Weapon yet.").
 
 combat(jesse, hiss_spawn) :-
-    location(jesse, Room), location(hiss_spawn, Room),
+    location(jesse, _Room), location(hiss_spawn, _Room),
     has(jesse, service_weapon), health(hiss_spawn, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
-    weapon_dmg(10, ActDmg, Crit),
-    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
-    NewHP is HP - ActDmg,
-    format(atom(Msg), "Hiss Spawn health: ~w -> ~w", [HP, NewHP]),
     normal_text("You fire!"),
-    note_text(Msg),
-    ( fire_weapon(hiss_spawn, ActDmg, Cost)
-    -> enemy_turn_spawn
-    ;  true
+    ( random(MissR), MissR < 0.10
+    -> miss_shot, enemy_turn_spawn
+    ;  weapon_dmg(10, ActDmg, Crit),
+       ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+       NewHP is HP - ActDmg,
+       format(atom(Msg), "Hiss Spawn health: ~w -> ~w", [HP, NewHP]),
+       note_text(Msg),
+       ( fire_weapon(hiss_spawn, ActDmg, Cost) -> enemy_turn_spawn ; true )
     ).
 
 combat(jesse, hiss_spawn) :- !,
@@ -1951,15 +1959,15 @@ combat(jesse, hiss_guard) :-
 combat(jesse, hiss_guard) :-
     has(jesse, service_weapon), health(hiss_guard, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
-    weapon_dmg(10, ActDmg, Crit),
-    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
-    NewHP is HP - ActDmg,
-    format(atom(Msg), "Hiss Guard health: ~w -> ~w", [HP, NewHP]),
     normal_text("You fire!"),
-    note_text(Msg),
-    ( fire_weapon(hiss_guard, ActDmg, Cost)
-    -> enemy_turn
-    ;  true
+    ( random(MissR), MissR < 0.10
+    -> miss_shot, enemy_turn
+    ;  weapon_dmg(10, ActDmg, Crit),
+       ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+       NewHP is HP - ActDmg,
+       format(atom(Msg), "Hiss Guard health: ~w -> ~w", [HP, NewHP]),
+       note_text(Msg),
+       ( fire_weapon(hiss_guard, ActDmg, Cost) -> enemy_turn ; true )
     ).
 
 combat(jesse, hiss_guard) :- !,
@@ -1994,18 +2002,18 @@ enemy_turn.
      2. Already dead   → report and stop.                          --- */
 
 combat(jesse, hiss_guard_b) :-
-    location(jesse, Room), location(hiss_guard_b, Room),
+    location(jesse, _Room), location(hiss_guard_b, _Room),
     has(jesse, service_weapon), health(hiss_guard_b, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
-    weapon_dmg(10, ActDmg, Crit),
-    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
-    NewHP is HP - ActDmg,
-    format(atom(Msg), "Hiss Guard health: ~w -> ~w", [HP, NewHP]),
     normal_text("You fire!"),
-    note_text(Msg),
-    ( fire_weapon(hiss_guard_b, ActDmg, Cost)
-    -> enemy_turn_guard_b
-    ;  true
+    ( random(MissR), MissR < 0.10
+    -> miss_shot, enemy_turn_guard_b
+    ;  weapon_dmg(10, ActDmg, Crit),
+       ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+       NewHP is HP - ActDmg,
+       format(atom(Msg), "Hiss Guard health: ~w -> ~w", [HP, NewHP]),
+       note_text(Msg),
+       ( fire_weapon(hiss_guard_b, ActDmg, Cost) -> enemy_turn_guard_b ; true )
     ).
 
 combat(jesse, hiss_guard_b) :- !,
@@ -2036,18 +2044,18 @@ enemy_turn_guard_b.
      2. Already dead   → report and stop.                          --- */
 
 combat(jesse, hiss_brute) :-
-    location(jesse, Room), location(hiss_brute, Room),
+    location(jesse, _Room), location(hiss_brute, _Room),
     has(jesse, service_weapon), health(hiss_brute, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
-    weapon_dmg(10, ActDmg, Crit),
-    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
-    NewHP is HP - ActDmg,
-    format(atom(Msg), "Hiss Brute health: ~w -> ~w", [HP, NewHP]),
     normal_text("You fire!"),
-    note_text(Msg),
-    ( fire_weapon(hiss_brute, ActDmg, Cost)
-    -> enemy_turn_brute
-    ;  true
+    ( random(MissR), MissR < 0.10
+    -> miss_shot, enemy_turn_brute
+    ;  weapon_dmg(10, ActDmg, Crit),
+       ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+       NewHP is HP - ActDmg,
+       format(atom(Msg), "Hiss Brute health: ~w -> ~w", [HP, NewHP]),
+       note_text(Msg),
+       ( fire_weapon(hiss_brute, ActDmg, Cost) -> enemy_turn_brute ; true )
     ).
 
 combat(jesse, hiss_brute) :- !,
@@ -2079,17 +2087,18 @@ enemy_turn_brute.
      2. Already dead   → report and stop.                          --- */
 
 combat(jesse, hiss_boss) :-
-    location(jesse, Room), location(hiss_boss, Room),
+    location(jesse, _Room), location(hiss_boss, _Room),
     has(jesse, service_weapon), health(hiss_boss, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
-    weapon_dmg(15, ActDmg, Crit),
-    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
-    NewHP is HP - ActDmg,
-    format(atom(Msg), "You fire at the Hiss Warden! Boss health: ~w -> ~w", [HP, NewHP]),
-    normal_text(Msg),
-    ( fire_weapon(hiss_boss, ActDmg, Cost)
-    -> enemy_turn_boss
-    ;  true
+    normal_text("You fire!"),
+    ( random(MissR), MissR < 0.10
+    -> miss_shot, enemy_turn_boss
+    ;  weapon_dmg(15, ActDmg, Crit),
+       ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+       NewHP is HP - ActDmg,
+       format(atom(Msg), "Hiss Warden health: ~w -> ~w", [HP, NewHP]),
+       note_text(Msg),
+       ( fire_weapon(hiss_boss, ActDmg, Cost) -> enemy_turn_boss ; true )
     ).
 
 combat(jesse, hiss_boss) :- !,
@@ -2132,14 +2141,15 @@ combat(jesse, Enemy) :-
     location(jesse, Room), location(Enemy, Room),
     has(jesse, service_weapon), health(Enemy, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
-    weapon_dmg(10, ActDmg, Crit),
-    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
-    NewHP is HP - ActDmg,
-    format(atom(Msg), "You fire at the Hiss! Enemy health: ~w -> ~w", [HP, NewHP]),
-    normal_text(Msg),
-    ( fire_weapon(Enemy, ActDmg, Cost)
-    -> enemy_turn_infection(Enemy, Room)
-    ;  true
+    normal_text("You fire!"),
+    ( random(MissR), MissR < 0.10
+    -> miss_shot, enemy_turn_infection(Enemy, Room)
+    ;  weapon_dmg(10, ActDmg, Crit),
+       ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+       NewHP is HP - ActDmg,
+       format(atom(Msg), "Hiss Infection health: ~w -> ~w", [HP, NewHP]),
+       note_text(Msg),
+       ( fire_weapon(Enemy, ActDmg, Cost) -> enemy_turn_infection(Enemy, Room) ; true )
     ).
 
 combat(jesse, Enemy) :-
