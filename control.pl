@@ -119,6 +119,7 @@
 :- dynamic cat_statue_placed/0. % one-shot: plinth puzzle has been solved
 :- dynamic shield_active/0.     % one-shot: next enemy hit is fully absorbed
 :- dynamic weapon_form_active/0. % persistent: weapon form taken; 3× damage, 3-charge cost
+:- dynamic sense_active/0.      % persistent: paranatural sense item taken; reveals adjacent enemies
 :- dynamic outside_attempts/1.  % outside_attempts(N) — escalating flavour counter
 
 :- discontiguous take_enemy_hit/1.
@@ -385,6 +386,7 @@ announce_enemies(Room) :-
 :- assertz(location(okoro,        lab77)).
 :- assertz(object(health_kit,     security_post)).
 :- assertz(object(health_kit,     records_room)).
+:- assertz(object(sense,          records_room)).
 :- assertz(object(health_kit,     containment_hall)).
 :- assertz(object(health_kit,     solitary)).
 :- assertz(object(charge_upgrade, atrium)).
@@ -2256,6 +2258,16 @@ apply_take(charge_upgrade, Room) :-
     format(atom(M), "Max weapon charge increased from ~w to ~w/~w", [MaxCharge, NewCharge, NewMaxCharge]),
     normal_text(M).
 
+%  sense — grants persistent awareness of enemies in adjacent rooms.
+apply_take(sense, Room) :-
+    retract(object(sense, Room)),
+    assertz(has(jesse, sense)),
+    assertz(sense_active),
+    highlight_text("You pick up the resonance sensor. It pulses once in your hand."),
+    normal_text("A faint awareness settles at the edge of your perception — \
+a low hum that sharpens whenever something hostile is nearby."),
+    tip_text("Sense active: you will be warned of enemies in adjacent rooms.").
+
 %  health_kit — restores HP to max; does nothing if already full.
 apply_take(health_kit, Room) :-
     health(jesse, HP), max_health(jesse, MaxHP),
@@ -2493,7 +2505,28 @@ describe_here :-
     list_thoughts(Room),
     list_occupants(Room),
     list_items(Room),
-    announce_enemies(Room).
+    announce_enemies(Room),
+    show_sense(Room).
+
+%% show_sense(+Room)
+%  If sense_active, scan all adjacent rooms for live enemies
+%  and warn the player about each one found.
+show_sense(Room) :-
+    sense_active, !,
+    findall(Next, (
+        connected(Room, Next, _),
+        living_enemy_here(Next)
+    ), DangerRooms),
+    ( DangerRooms \= []
+    -> tip_text("[ SENSE ] Hostile presence detected nearby:"),
+       forall(member(DR, DangerRooms), (
+           room_name(DR, RName),
+           format(string(Msg), "  Caution: enemies in ~w — proceed carefully.", [RName]),
+           tip_text(Msg)
+       ))
+    ; true
+    ).
+show_sense(_).
 
 %% list_occupants(+Room)
 %  Show friendly NPCs in the room with a header and talk tip.
@@ -2838,6 +2871,7 @@ restart_game :-
     retractall(weapon_just_taken),
     retractall(shield_active),
     retractall(weapon_form_active),
+    retractall(sense_active),
     retractall(location(_, _)),
     retractall(health(_, _)),
     retractall(max_health(_, _)),
@@ -2888,6 +2922,7 @@ restart_game :-
     assertz(object(health_kit,     lobby)),
     assertz(object(health_kit,     security_post)),
     assertz(object(health_kit,     records_room)),
+    assertz(object(sense,          records_room)),
     assertz(object(health_kit,     containment_hall)),
     assertz(object(health_kit,     solitary)),
     assertz(object(cat_statue,     upper_hall)),
