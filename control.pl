@@ -373,6 +373,7 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     anteroom)).
 :- assertz(object(health_upgrade, ops_room)).
 :- assertz(object(locked_box,     food_vendor)).
+:- assertz(object(health_kit,     north_alley)).
 :- assertz(object(smash,          lab77)).
 :- assertz(object(health_kit,     archive_bay)).
 :- assertz(object(health_upgrade, secret_chamber)).
@@ -405,6 +406,12 @@ connected(lobby,       street,      exit).
 connected(lobby,       street,      south).
 connected(street,      food_vendor, east).
 connected(food_vendor, street,      west).
+connected(food_vendor, north_alley, north).
+connected(north_alley, food_vendor, south).
+connected(food_vendor, east_plaza,  east).
+connected(east_plaza,  food_vendor, west).
+connected(food_vendor, south_lot,   south).
+connected(south_lot,   food_vendor, north).
 connected(street,      west_road,   west).
 connected(west_road,   street,      east).
 
@@ -492,6 +499,29 @@ featureless, and humming faintly. The front doors wait silently.").
 description(food_vendor,
     "A greasy hot‑dog cart stands here. A man in a stained apron shouts, \
 'Best dogs in the Oldest House!'").
+
+description(north_alley,
+    "A narrow service alley running behind the Oldest House. \
+The building's back wall looms overhead — raw concrete, no windows, \
+stained grey by decades of city weather. \
+A metal service door stands shut at the far end. \
+Cigarette butts cluster near a ventilation grate: evidence of every smoke break \
+taken by Bureau staff who needed a moment outside and couldn't go far.").
+
+description(east_plaza,
+    "A wide concrete apron stretching east of the hot-dog cart. \
+There are benches — Bureau-standard, uncomfortable by design. \
+A flagpole at the far edge still flies a Bureau pennant, intact, \
+calmly snapping in the wind as if nothing has happened. \
+Something about that is worse than if it had come down.").
+
+description(south_lot,
+    "Staff parking. Bureau-issue signage: PERMIT HOLDERS ONLY. \
+The lot is almost full — maybe thirty cars sitting in orderly rows, \
+each left as if its owner planned to come back after lunch. \
+A glass security booth at the entrance stands empty, \
+a half-drunk coffee visible on the counter inside. \
+Nobody came back after lunch.").
 
 description(west_road,
     "A quiet side street veering north. The air smells like dust and old paper. \
@@ -659,6 +689,9 @@ room_name(lab77_locked,     'Lab 77 (Locked)').
 room_name(archive_bay,      'Archive Bay').
 room_name(toilets,          'The Toilets').
 room_name(food_vendor,      'Food Vendor').
+room_name(north_alley,      'North Alley').
+room_name(east_plaza,       'East Plaza').
+room_name(south_lot,        'South Lot').
 room_name(west_road,        'West Road').
 room_name(secret_chamber,   'Secret Chamber').
 room_name(demolition_room,  'Demolition Room').
@@ -703,6 +736,56 @@ The House has been shifting after hours.").
 
 note(food_vendor, menu,
     "A grease-stained menu board reads: 'TODAY'S SPECIAL: Bureau Burger - Code: BUREAU47'").
+
+note(north_alley, back_graffiti,
+    "Spray-painted on the service door in confident capitals: 'BUREAU EATS PIGEONS.' \
+Below it, in much smaller and more careful letters, someone has written: \
+'This is defamatory. The Bureau has never eaten any pigeons. \
+— Internal Affairs, Informal Capacity.' \
+Below that, in the original hand: 'PROVE IT.'").
+note(north_alley, smoke_break_note,
+    "On the back of a Bureau memo, written in the cramped script of someone \
+who had about four minutes and a cigarette: \
+'Day 47. Still can't get the filing system to register objects with no fixed form. \
+IT says it's a data entry issue. IT has clearly never tried to file something \
+that is also filing you back. Went for a smoke. Better out here. \
+Smell of outside is good. — B.'").
+note(north_alley, service_door_notice,
+    "A laminated Bureau notice riveted to the service door: \
+'ALL DELIVERIES: Sign in at front desk. Do not leave items unattended. \
+Do not make eye contact with any item that appears to be watching you. \
+Report anomalous deliveries to your supervisor immediately. \
+If your supervisor is the anomalous delivery, refer to Pamphlet 12.' \
+Pamphlet 12 is not attached.").
+
+note(east_plaza, bureau_flag,
+    "The Bureau pennant on the flagpole is regulation-issue: \
+dark grey, a stylised pyramid, no text. \
+It's been up there for years — you can tell by the precise fading at the edges. \
+Whoever runs the building maintenance had it replaced on a schedule. \
+Right now, on schedule or not, it's still there. \
+The Bureau, at least on a flag, still stands.").
+note(east_plaza, abandoned_placard,
+    "A hand-lettered protest sign lying face-up on one of the benches: \
+'WE DEMAND TRANSPARENCY — WHAT IS INSIDE THE OLDEST HOUSE??' \
+The cardboard is slightly damp. It wasn't here long before whoever carried it \
+had to put it down and leave in a hurry. \
+You consider the question. You are inside the Oldest House. \
+You do not feel particularly transparent.").
+
+note(south_lot, parking_permit,
+    "A Bureau parking permit left on the dash of a grey sedan: \
+'VALID: FY26. HOLDER: TRENCH, Z. CLEARANCE: LEVEL 4.' \
+The permit has been renewed every year for at least a decade. \
+The same car, same space, same permit. Ten years of Tuesday mornings. \
+Director Trench parked here this morning and walked into the building \
+and did not walk out again.").
+note(south_lot, security_rota,
+    "The staff rota pinned inside the security booth, \
+visible through the glass: eight names, three shifts, \
+all crossed through with a single diagonal red line \
+and the word SUSPENDED stamped in bureaucratic red. \
+At the bottom, in handwriting: 'No point. Nobody's leaving. — Gate'").
 
 note(janitor_hall, ahti_notice,
     "A notice pinned above Ahti's cart in careful block letters: \
@@ -1155,6 +1238,25 @@ inner_thought(food_vendor, locked_box,
 Maybe he doesn't know what's in it. Maybe he put it there and forgot. \
 The code has to be somewhere in this building — the Bureau documented everything. \
 Someone wrote it down. You just have to find the right piece of paper.").
+
+inner_thought(north_alley, outside,
+    "You're outside. Actually outside. \
+The sky is still there — the same sky, the same light, the same air. \
+None of that changed. \
+The building behind you is taller from back here somehow, \
+as if the alley is designed to make you feel it. \
+You look up and don't bother counting the floors. \
+Something in there is waiting for you to come back in. \
+You already know you're going to.").
+
+inner_thought(south_lot, cars,
+    "All those cars. All those people who drove to work this morning \
+and parked in their usual spot and grabbed their badge from the passenger seat \
+and walked in through the front door. \
+Ordinary morning. Coffee. The permit on the car that says Level 4 Clearance \
+and a name you recognise. \
+You think about what it means to park your car and never come back for it. \
+You think about it for longer than you mean to.").
 
 inner_thought(west_road, leaving,
     "You could just walk. Nothing is stopping you. \
@@ -2680,6 +2782,7 @@ restart_game :-
     assertz(object(health_kit,     anteroom)),
     assertz(object(health_upgrade, ops_room)),
     assertz(object(locked_box,     food_vendor)),
+    assertz(object(health_kit,     north_alley)),
     assertz(object(smash,          lab77)),
     assertz(object(health_kit,     archive_bay)),
     assertz(object(health_upgrade, secret_chamber)),
