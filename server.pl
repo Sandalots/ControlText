@@ -108,6 +108,7 @@ init_game_output :-
     description(Room, Desc),
     normal_text(Desc),
     list_notes(Room),
+    list_thoughts(Room),
     list_items(Room),
     list_occupants(Room).
 
