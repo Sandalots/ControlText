@@ -1879,6 +1879,24 @@ fire_weapon(Enemy, FinalDmg, Cost) :-
        assertz(weapon_charge(jesse, NewCharge))
     ).
 
+%% hiss_attack_line(+DisplayName, -Line)
+%  Picks a random attack message from the pool, formatting
+%  DisplayName into the chosen template.
+hiss_attack_line(Name, Line) :-
+    Templates = [
+        "~w lashes out!",
+        "~w lunges at you!",
+        "~w slams into you!",
+        "~w tears at your mind!",
+        "~w strikes with violent force!",
+        "~w surges forward!",
+        "~w howls and attacks!",
+        "~w bears down on you!",
+        "~w closes in fast!"
+    ],
+    random_member(Template, Templates),
+    format(string(Line), Template, [Name]).
+
 /* --- Hiss Guard (spawned in upper_hall when service_weapon is taken) ---
    HP: 30  |  Player damage: 10/shot  |  Retaliates: 25 damage
    Three clauses (ordered, each cut):
@@ -1897,8 +1915,9 @@ combat(jesse, hiss_spawn) :-
     weapon_dmg(10, ActDmg, Crit),
     ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
     NewHP is HP - ActDmg,
-    format(atom(Msg), "You fire! Hiss Spawn health: ~w -> ~w", [HP, NewHP]),
-    normal_text(Msg),
+    format(atom(Msg), "Hiss Spawn health: ~w -> ~w", [HP, NewHP]),
+    normal_text("You fire!"),
+    note_text(Msg),
     ( fire_weapon(hiss_spawn, ActDmg, Cost)
     -> enemy_turn_spawn
     ;  true
@@ -1920,7 +1939,7 @@ enemy_turn_spawn :-
           highlight_text(RMsg)
        ;  true
        )
-    ;  normal_text("The Hiss Spawn lunges at you!"),
+    ;  hiss_attack_line('Hiss Spawn', AL), normal_text(AL),
        take_enemy_hit(8)
     ), !.
 enemy_turn_spawn.
@@ -1935,8 +1954,9 @@ combat(jesse, hiss_guard) :-
     weapon_dmg(10, ActDmg, Crit),
     ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
     NewHP is HP - ActDmg,
-    format(atom(Msg), "You fire! Hiss Guard health: ~w -> ~w", [HP, NewHP]),
-    normal_text(Msg),
+    format(atom(Msg), "Hiss Guard health: ~w -> ~w", [HP, NewHP]),
+    normal_text("You fire!"),
+    note_text(Msg),
     ( fire_weapon(hiss_guard, ActDmg, Cost)
     -> enemy_turn
     ;  true
@@ -1962,7 +1982,7 @@ enemy_turn :-
        ; tip_text("Tip: look for health_kit items in rooms to restore health."),
          assertz(health_kit_tip_shown)
        )
-    ;  normal_text("The Hiss Guard lashes out!"),
+    ;  hiss_attack_line('Hiss Guard', AL), normal_text(AL),
        take_enemy_hit(25)
     ), !.
 enemy_turn.
@@ -1980,8 +2000,9 @@ combat(jesse, hiss_guard_b) :-
     weapon_dmg(10, ActDmg, Crit),
     ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
     NewHP is HP - ActDmg,
-    format(atom(Msg), "You fire! Hiss Guard health: ~w -> ~w", [HP, NewHP]),
-    normal_text(Msg),
+    format(atom(Msg), "Hiss Guard health: ~w -> ~w", [HP, NewHP]),
+    normal_text("You fire!"),
+    note_text(Msg),
     ( fire_weapon(hiss_guard_b, ActDmg, Cost)
     -> enemy_turn_guard_b
     ;  true
@@ -2003,7 +2024,7 @@ enemy_turn_guard_b :-
           highlight_text(RMsg)
        ;  true
        )
-    ;  normal_text("The Hiss Guard lashes out!"),
+    ;  hiss_attack_line('Hiss Guard', AL), normal_text(AL),
        take_enemy_hit(25)
     ), !.
 enemy_turn_guard_b.
@@ -2021,8 +2042,9 @@ combat(jesse, hiss_brute) :-
     weapon_dmg(10, ActDmg, Crit),
     ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
     NewHP is HP - ActDmg,
-    format(atom(Msg), "You fire! Hiss Brute health: ~w -> ~w", [HP, NewHP]),
-    normal_text(Msg),
+    format(atom(Msg), "Hiss Brute health: ~w -> ~w", [HP, NewHP]),
+    normal_text("You fire!"),
+    note_text(Msg),
     ( fire_weapon(hiss_brute, ActDmg, Cost)
     -> enemy_turn_brute
     ;  true
@@ -2044,7 +2066,7 @@ enemy_turn_brute :-
           highlight_text(RMsg)
        ;  true
        )
-    ;  normal_text("The Hiss Brute swings wildly!"),
+    ;  hiss_attack_line('Hiss Brute', AL), normal_text(AL),
        take_enemy_hit(20)
     ), !.
 enemy_turn_brute.
@@ -2090,7 +2112,7 @@ enemy_turn_boss :-
        highlight_text("A KEY clatters to the floor. A label reads: CELL E‑1."),
        highlight_text("You pick up Dylan's cell key."),
        tip_text("The east door is now unlocked. Use 'go east' to reach Dylan's cell.")
-    ;  normal_text("The Hiss Warden slams into you with crushing force!"),
+    ;  hiss_attack_line('Hiss Warden', AL), normal_text(AL),
        take_enemy_hit(35)
     ), !.
 enemy_turn_boss.
@@ -2138,7 +2160,7 @@ enemy_turn_infection(Enemy, Room) :-
        ;  true
        ),
        on_hiss_defeated(Room)
-    ;  normal_text("The Hiss infection lashes out!"),
+    ;  hiss_attack_line('Hiss Infection', AL), normal_text(AL),
        take_enemy_hit(20)
     ), !.
 enemy_turn_infection(_, _).
