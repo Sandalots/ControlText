@@ -380,6 +380,7 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     archive_bay)).
 :- assertz(object(health_upgrade, secret_chamber)).
 :- assertz(object(health_upgrade, toilets)).
+:- assertz(object(charge_upgrade, pipe_room)).
 :- assertz(object(health_kit,     lobby)).
 :- assertz(location(okoro,        lab77)).
 :- assertz(object(health_kit,     security_post)).
@@ -424,6 +425,8 @@ connected(lobby,        janitor_hall, east).
 connected(janitor_hall, lobby,        west).
 connected(janitor_hall, toilets,      north).
 connected(toilets,      janitor_hall, south).
+connected(toilets,      pipe_room,    north) :- has(jesse, smash).
+connected(pipe_room,    toilets,      south) :- has(jesse, smash).
 connected(janitor_hall, utility_bay,  south).
 connected(utility_bay,  janitor_hall, north).
 
@@ -549,6 +552,14 @@ everything will eventually resolve itself.").
 description(toilets,
     "A dimly lit bathroom. The smell of industrial cleaner hangs in the air. \
 A first aid kit sits on the counter, weathered and faded.").
+
+description(pipe_room,
+    "A utility void above the bathroom ceiling, barely tall enough to stand in. \
+Branching pipes run the length of the room, lagged with crumbling insulation. \
+The smash object opened a section of false wall to get you in here — \
+the hole it left is ragged and clean, like a bite through cardboard. \
+Something was stored here deliberately, shoved behind a pipe and wrapped in a Bureau evidence bag: \
+a compact resonance capacitor, still charged.").
 
 description(atrium,
     "A vast circular chamber with high vaulted ceilings. Strange geometric patterns \
@@ -692,6 +703,7 @@ room_name(lab77,            'Lab 77').
 room_name(lab77_locked,     'Lab 77 (Locked)').
 room_name(archive_bay,      'Archive Bay').
 room_name(toilets,          'The Toilets').
+room_name(pipe_room,        'Pipe Room').
 room_name(food_vendor,      'Food Vendor').
 room_name(north_alley,      'North Alley').
 room_name(east_plaza,       'East Plaza').
@@ -821,6 +833,15 @@ Conveniently, I have a sandwich. I will wait here. —D'").
 note(toilets, mirror_message,
     "Written in soap across the bathroom mirror, large unsteady letters: \
 'THEY ARE IN THE WALLS. IF YOU CAN READ THIS YOU ARE STILL YOU. STAY THAT WAY.'").
+
+note(pipe_room, stashed_memo,
+    "Tucked inside the evidence bag with the capacitor, a folded Bureau memo: \
+'If you're reading this, you found the gap in the wall. Good. \
+That means you have the object and you know what you're doing. \
+The capacitor in here adds to your weapon's maximum charge. \
+I hid it because I didn't want certain colleagues knowing how far \
+the resonance experiments had progressed. \
+If I'm not around to explain: it was further than they thought. — Dr. V'").
 
 note(atrium, cat_plinth,
     "A circular stone plinth sits at the centre of the atrium floor. \
@@ -1277,6 +1298,15 @@ the rest of the building is falling apart and the facilities are still clean. \
 You check your weapon. You breathe. \
 One minute of being a person in a bathroom. \
 Then back to work.").
+
+inner_thought(pipe_room, hidden,
+    "Someone hid this here on purpose. \
+Not dropped, not left behind — hidden. \
+Wrapped up and pushed behind a pipe inside a wall \
+that you can only get through if you're carrying a paranatural breach object. \
+Whoever put this here knew it would stay hidden from almost everyone. \
+They were either very careful or very scared. \
+You suspect both.").
 
 inner_thought(sub_lab, capacitor,
     "An extended discharge unit — Bureau designation, shelf tag, everything labelled. \
@@ -1955,6 +1985,7 @@ infectable_room(evidence_vault).
 infectable_room(lab77).
 infectable_room(archive_bay).
 infectable_room(toilets).
+infectable_room(pipe_room).
 infectable_room(food_vendor).
 infectable_room(secret_chamber).
 infectable_room(death_room).
@@ -2849,6 +2880,7 @@ restart_game :-
     assertz(object(health_kit,     archive_bay)),
     assertz(object(health_upgrade, secret_chamber)),
     assertz(object(health_upgrade, toilets)),
+    assertz(object(charge_upgrade, pipe_room)),
     assertz(object(charge_upgrade, atrium)),
     assertz(object(charge_upgrade, sub_lab)),
     assertz(location(okoro,        lab77)),
