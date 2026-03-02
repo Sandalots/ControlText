@@ -11,13 +11,13 @@
                      ↕ (enter/exit)
                    lobby ──→ janitor_hall → toilets
                      ↕ (keys)            ↕ (weapon)
-                upper_hall              atrium
-                  ↕   ↕ ↕               ↕ (weapon)
-      records  dir.off sec.post   containment_hall
-                 ↕                      ↕ (weapon)
-            demolition              solitary
-                 ↕                      ↕ (dylans_cell_key)
-            death_room             dylans_cell
+                upper_hall              atrium ──→ containment_hall (weapon)
+                  ↕   ↕ ↕               ↓ (weapon)       ↕ (weapon)
+      records  dir.off sec.post    resonance_lab        solitary
+                 ↕                               ↕ (dylans_cell_key)
+            demolition                       dylans_cell
+                 ↕
+            death_room
       lobby → lab77 (lab77_key) → secret_chamber (smash)
 
    ── ENTITIES ────────────────────────────────
@@ -51,6 +51,8 @@
       health_upgrade — +5 max HP and current HP
       charge_upgrade — +2 max weapon charge and current charge
       locked_box     — unlockable container at food_vendor
+      weapon_form    — found in resonance_lab; triples weapon
+                       damage but costs 3 charges per shot
 
    ── ARCHITECTURE ────────────────────────────
       This file is designed to run in two modes:
@@ -108,6 +110,8 @@
                                  picked up (one-shot)
         cat_statue_placed      — plinth puzzle complete
         shield_active          — next hit is absorbed
+        weapon_form_active     — weapon form acquired;
+                                 3× damage / 3-charge cost
    ============================================ */
 
 :- dynamic location/2.          % location(Entity, Room)
@@ -126,6 +130,7 @@
 :- dynamic weapon_just_taken/0. % one-shot: suppresses infection on weapon-pickup turn
 :- dynamic cat_statue_placed/0. % one-shot: plinth puzzle has been solved
 :- dynamic shield_active/0.     % one-shot: next enemy hit is fully absorbed
+:- dynamic weapon_form_active/0. % persistent: weapon form taken; 3× damage, 3-charge cost
 :- dynamic outside_attempts/1.  % outside_attempts(N) — escalating flavour counter
 
 :- discontiguous take_enemy_hit/1.
@@ -384,6 +389,7 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     containment_hall)).
 :- assertz(object(health_kit,     solitary)).
 :- assertz(object(charge_upgrade, atrium)).
+:- assertz(object(weapon_form,    resonance_lab)).
 :- assertz(object(cat_statue,     upper_hall)).
 :- assertz(object(flower,         street)).
 :- assertz(object(shield,         demolition_room)).
@@ -416,6 +422,10 @@ connected(janitor_hall,     atrium,           east) :- has(jesse, service_weapon
 connected(atrium,           janitor_hall,     west) :- has(jesse, service_weapon).
 connected(atrium,           containment_hall, east) :- has(jesse, service_weapon).
 connected(containment_hall, atrium,           west) :- has(jesse, service_weapon).
+
+/* --- Resonance Lab — requires Service Weapon --- */
+connected(atrium,        resonance_lab, south) :- has(jesse, service_weapon).
+connected(resonance_lab, atrium,        north) :- has(jesse, service_weapon).
 
 /* --- Solitary — requires Service Weapon --- */
 connected(containment_hall, solitary,         east) :- has(jesse, service_weapon).
@@ -482,6 +492,13 @@ description(atrium,
     "A vast circular chamber with high vaulted ceilings. Strange geometric patterns \
 cover the floor, seeming to shift and breathe with an otherworldly rhythm. \
 The air feels heavy with presence.").
+
+description(resonance_lab,
+    "A disused research lab buried behind the atrium. The walls are lined with \
+blackboards covered in resonance equations, half-erased and restless. \
+In the centre of the room, on a scorched examination table, sits a shifting \
+mass of paranatural energy barely contained in the form of a weapon. \
+The air hums with potential violence.").
 
 description(containment_hall,
     "A long reinforced corridor. Containment cells line both walls, most of them \
@@ -553,6 +570,7 @@ You had one second to reconsider. You didn't take it.").
 room_name(street,           'The Street').
 room_name(lobby,            'The Lobby').
 room_name(atrium,           'The Atrium').
+room_name(resonance_lab,    'Resonance Lab').
 room_name(containment_hall, 'Containment Hall').
 room_name(solitary,         'Solitary Confinement').
 room_name(dylans_cell,      "Dylan's Cell").
@@ -620,6 +638,20 @@ note(atrium, research_scrawl,
 'The resonance patterns converge at this point. Whatever belonged here \
 has been moved to the upper level for safekeeping. Bad idea. \
 The room has been wrong ever since. —R.H.'").
+
+note(resonance_lab, resonance_log,
+    "Research log, partially destroyed: 'The resonance pattern coalesces around \
+the object. It has begun to take the form of a weapon — a response, perhaps, \
+to the paranatural energies saturating this building. Handle with extreme caution. \
+Three bursts of fire were observed in testing. Do not exceed. —Dr. Darling'").
+note(resonance_lab, warning_placard,
+    "A laminated placard, one corner melted: 'CAUTION: OBJECT OF POWER STUDY IN \
+PROGRESS. Do not interact with the resonance mass without Director clearance. \
+Energy discharge may occur without warning.'").
+note(resonance_lab, scrawled_note,
+    "Words scratched into the wall beside the table: \
+'It wants to be used. I can feel it pulling. But every time it fires, it takes \
+something with it — like it is eating the air. Three shots and the lights go out. —R.H.'").
 
 note(upper_hall, evacuation_notice,
     "A laminated evacuation notice, corners curling: 'In the event of a paranatural \
@@ -817,6 +849,63 @@ He looks smaller than you remember. Older. \
 Whatever happened to him in here, he's still breathing. \
 That's enough. That has to be enough. \
 You just have to get him out.").
+
+inner_thought(janitor_hall, ahti,
+    "The janitor. Ahti. \
+He shouldn't know anything useful — and yet he clearly does. \
+The way he talks, the way he watches you move through this building. \
+You've met people like him before. People who've been somewhere dangerous long enough \
+that the danger stopped noticing them. \
+Whatever Ahti's seen in here, it didn't touch him. \
+You're not sure if that makes him the safest person in the building \
+or the most dangerous.").
+
+inner_thought(directors_office, director,
+    "He's still here. The Director. \
+Something moved him to end it in his own office, in his own chair, \
+gun in hand — and whatever it was, he left the weapon behind. \
+You don't know his name. You don't know what he saw. \
+But you know this building chose him once, \
+and it's pointing at you now. \
+You pick up the gun. It feels right. \
+That's the part that scares you.").
+
+inner_thought(upper_hall, deeper,
+    "You're further in than you meant to go. \
+The lobby felt like a threshold — something you could still step back from. \
+This doesn't. \
+The corridor hums at a frequency you feel in your back teeth. \
+You think about Dylan. You think about how he would have walked in here \
+without hesitation, without thinking it through. \
+You think maybe that's the difference between you. \
+You think it too, anyway. And here you are.").
+
+inner_thought(containment_hall, cells,
+    "The doors are all hanging open. \
+Whatever was in these cells didn't wait to be let out. \
+You try not to think about what was strong enough to do that \
+and what might still be in here doing it. \
+Keep moving. Don't look in the cells. \
+You already broke the second rule.").
+
+inner_thought(solitary, warden,
+    "Something is wrong with the air in here. \
+Heavy. Charged. Like standing near a transformer. \
+Whatever is at the end of this block, it's been here a long time. \
+Long enough that the building built itself around it. \
+You tighten your grip on the Service Weapon. \
+It hums back at you, just slightly. \
+Okay. That's either reassuring or terrifying. \
+Probably both.").
+
+inner_thought(resonance_lab, form,
+    "It looks like a weapon the way a thunderstorm looks like weather. \
+Technically accurate. Catastrophically understated. \
+You can feel it pulling at the edges of your attention — \
+not threatening, exactly. More like a question being asked \
+in a frequency your brain isn't built to answer. \
+You're going to pick it up anyway. \
+You already know that. The room already knows that.").
 
 %% list_thoughts(+Room)
 %  Show available thought IDs for the current room.
@@ -1043,22 +1132,29 @@ check_death :-
     ; true
     ).
 
-%% fire_weapon(+Enemy, +Dmg)
+%% weapon_dmg(+Base, -Actual)
+%  Returns actual damage: 3× Base if weapon_form_active, otherwise Base.
+weapon_dmg(Base, Actual) :-
+    ( weapon_form_active -> Actual is Base * 3 ; Actual = Base ).
+
+%% fire_weapon(+Enemy, +BaseDmg)
 %  Core attack logic shared by all combat/2 clauses.
-%  Guards: fails immediately (printing a message) if weapon charge
-%  is 0 — the player must use 'skip' to recharge.
-%  On success: subtracts Dmg from Enemy's health fact and
-%  decrements Jesse's weapon_charge by 1.
-fire_weapon(Enemy, Dmg) :-
+%  If weapon_form_active: damage is 3× BaseDmg and costs 3 charges.
+%  Otherwise: damage is BaseDmg and costs 1 charge.
+%  Fails (with message) if charge is insufficient for the current cost.
+%  On success: subtracts actual Dmg from Enemy's health fact and
+%  decrements Jesse's weapon_charge by the cost.
+fire_weapon(Enemy, BaseDmg) :-
     weapon_charge(jesse, Charge),
-    ( Charge =< 0
-    -> highlight_text("Your weapon is out of charge! Use 'skip' to recharge."),
+    ( weapon_form_active -> Cost = 3, Dmg is BaseDmg * 3 ; Cost = 1, Dmg = BaseDmg ),
+    ( Charge < Cost
+    -> highlight_text("Your weapon lacks the charge for that! Use 'skip' to recharge."),
        fail
     ;  health(Enemy, HP),
        NewHP is HP - Dmg,
        retractall(health(Enemy, _)),
        assertz(health(Enemy, NewHP)),
-       NewCharge is Charge - 1,
+       NewCharge is Charge - Cost,
        retractall(weapon_charge(jesse, _)),
        assertz(weapon_charge(jesse, NewCharge))
     ).
@@ -1076,7 +1172,7 @@ combat(jesse, hiss_guard) :-
 
 combat(jesse, hiss_guard) :-
     has(jesse, service_weapon), health(hiss_guard, HP), HP > 0, !,
-    NewHP is HP - 10,
+    weapon_dmg(10, ActDmg), NewHP is HP - ActDmg,
     format(atom(Msg), "You fire! Hiss Guard health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
     ( fire_weapon(hiss_guard, 10)
@@ -1118,7 +1214,7 @@ enemy_turn.
 combat(jesse, hiss_guard_b) :-
     location(jesse, Room), location(hiss_guard_b, Room),
     has(jesse, service_weapon), health(hiss_guard_b, HP), HP > 0, !,
-    NewHP is HP - 10,
+    weapon_dmg(10, ActDmg), NewHP is HP - ActDmg,
     format(atom(Msg), "You fire! Hiss Guard health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
     ( fire_weapon(hiss_guard_b, 10)
@@ -1156,7 +1252,7 @@ enemy_turn_guard_b.
 combat(jesse, hiss_brute) :-
     location(jesse, Room), location(hiss_brute, Room),
     has(jesse, service_weapon), health(hiss_brute, HP), HP > 0, !,
-    NewHP is HP - 10,
+    weapon_dmg(10, ActDmg), NewHP is HP - ActDmg,
     format(atom(Msg), "You fire! Hiss Brute health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
     ( fire_weapon(hiss_brute, 10)
@@ -1195,7 +1291,7 @@ enemy_turn_brute.
 combat(jesse, hiss_boss) :-
     location(jesse, Room), location(hiss_boss, Room),
     has(jesse, service_weapon), health(hiss_boss, HP), HP > 0, !,
-    NewHP is HP - 15,
+    weapon_dmg(15, ActDmg), NewHP is HP - ActDmg,
     format(atom(Msg), "You fire at the Hiss Warden! Boss health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
     ( fire_weapon(hiss_boss, 15)
@@ -1242,7 +1338,7 @@ combat(jesse, Enemy) :-
     atom_concat(hiss_infection_, _, Enemy),
     location(jesse, Room), location(Enemy, Room),
     has(jesse, service_weapon), health(Enemy, HP), HP > 0, !,
-    NewHP is HP - 10,
+    weapon_dmg(10, ActDmg), NewHP is HP - ActDmg,
     format(atom(Msg), "You fire at the Hiss! Enemy health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
     ( fire_weapon(Enemy, 10)
@@ -1329,6 +1425,7 @@ skip_turn :-
 %  Rooms eligible for random Hiss infection.
 infectable_room(lobby).
 infectable_room(atrium).
+infectable_room(resonance_lab).
 infectable_room(containment_hall).
 infectable_room(janitor_hall).
 infectable_room(upper_hall).
@@ -1631,6 +1728,17 @@ apply_take(service_weapon, Room) :-
     assertz(health(hiss_guard, 30)),
     assertz(weapon_just_taken),  % suppress infection check this turn
     highlight_text("A distant screech echoes through the building...").
+
+%  weapon_form — merges paranatural resonance into the Service Weapon;
+%               triples damage but costs 3 weapon charges per shot.
+apply_take(weapon_form, Room) :-
+    retract(object(weapon_form, Room)),
+    assertz(has(jesse, weapon_form)),
+    assertz(weapon_form_active),
+    normal_text("You reach out and grasp the resonance form. It writhes in your hands,"),
+    normal_text("then stills — merging with the Service Weapon. The weapon feels heavier now."),
+    normal_text("Hungrier. You can feel its appetite."),
+    highlight_text("Weapon Form absorbed. Damage ×3. Each shot now costs 3 charges.").
 
 %  Generic — no special logic; just removes object and adds to inventory.
 apply_take(Item, Room) :-
@@ -2167,6 +2275,7 @@ restart_game :-
     retractall(hiss_infected(_)),
     retractall(weapon_just_taken),
     retractall(shield_active),
+    retractall(weapon_form_active),
     retractall(location(_, _)),
     retractall(health(_, _)),
     retractall(max_health(_, _)),
@@ -2204,6 +2313,7 @@ restart_game :-
     assertz(object(health_upgrade, secret_chamber)),
     assertz(object(health_upgrade, toilets)),
     assertz(object(charge_upgrade, atrium)),
+    assertz(object(weapon_form,    resonance_lab)),
     assertz(object(health_kit,     lobby)),
     assertz(object(health_kit,     security_post)),
     assertz(object(health_kit,     records_room)),
