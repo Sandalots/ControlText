@@ -388,6 +388,8 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     records_room)).
 :- assertz(object(sense,          records_room)).
 :- assertz(object(health_kit,     containment_hall)).
+:- assertz(object(charge_upgrade, cell_annex)).
+:- assertz(object(health_kit,     watch_post)).
 :- assertz(object(health_kit,     solitary)).
 :- assertz(object(charge_upgrade, atrium)).
 :- assertz(object(health_kit,     rejuvenation_room)).
@@ -437,8 +439,12 @@ connected(utility_bay,  janitor_hall, north).
 /* --- Atrium / containment — requires Service Weapon --- */
 connected(janitor_hall,     atrium,             east) :- has(jesse, service_weapon).
 connected(atrium,           janitor_hall,       west) :- has(jesse, service_weapon).
-connected(atrium,           containment_hall,   east) :- has(jesse, service_weapon).
-connected(containment_hall, atrium,             west) :- has(jesse, service_weapon).
+connected(atrium,            containment_hall,   east) :- has(jesse, service_weapon).
+connected(containment_hall,  atrium,             west) :- has(jesse, service_weapon).
+connected(containment_hall,  cell_annex,         north) :- has(jesse, service_weapon).
+connected(cell_annex,        containment_hall,   south) :- has(jesse, service_weapon).
+connected(containment_hall,  watch_post,         south) :- has(jesse, service_weapon).
+connected(watch_post,        containment_hall,   north) :- has(jesse, service_weapon).
 connected(atrium,           rejuvenation_room,  north) :- has(jesse, service_weapon).
 connected(rejuvenation_room, atrium,            south) :- has(jesse, service_weapon).
 
@@ -602,6 +608,25 @@ description(containment_hall,
 hanging open and dark. The air smells of ozone and fear. A Hiss‑infected guard \
 patrols the far end, twitching erratically.").
 
+description(cell_annex,
+    "A processing annex off the north side of the containment hall. \
+This is where inmates were booked, documented, and assigned cells. \
+A long counter runs the length of one wall, clipboards still hanging above it, \
+each labelled with a cell number. The cell numbers go higher than the hall has cells. \
+A locked filing cabinet has been forced open, its contents spread across the floor. \
+Someone was looking for a specific name. \
+From the mess, it looks like they found it.").
+
+description(watch_post,
+    "A raised observation room that looks back down into the containment hall \
+through scratched reinforced glass. Banks of monitors show static on most channels \
+and nothing on the rest. \
+One screen still has a live feed from a camera in solitary: a fixed angle, \
+a corridor, a shape at the far end that hasn't moved in however long this tape has been running. \
+A chair has been bolted to the floor facing the monitors. \
+Somebody had to watch that screen every shift. \
+You think about what that job was like.").
+
 description(solitary,
     "A cavernous solitary confinement block. The cells here are reinforced with \
 paranatural dampeners — thick runes etched into every surface. Most of the doors \
@@ -707,6 +732,8 @@ room_name(rejuvenation_room,   'Rejuvenation Room').
 room_name(resonance_lab,       'Resonance Lab').
 room_name(sub_lab,          'Sub-Lab').
 room_name(containment_hall, 'Containment Hall').
+room_name(cell_annex,       'Cell Annex').
+room_name(watch_post,       'Watch Post').
 room_name(solitary,         'Solitary Confinement').
 room_name(dylans_cell,      "Dylan's Cell").
 room_name(janitor_hall,     "Janitor's Hall").
@@ -930,6 +957,57 @@ note(containment_hall, breach_report,
 All units breached. Cause unknown. DO NOT attempt manual recontainment. \
 Wait for specialist team. — NOTE: Specialist team has not arrived. \
 This notice has been here for eleven days.'").
+
+note(cell_annex, intake_log,
+    "The intake log for cell block C, open to the last completed entry: \
+'SUBJECT: HISS WARDEN — CELL: SOLITARY EAST. \
+CLASSIFICATION: ENTITY, TYPE 4. CONTAINMENT PROTOCOL: MAXIMUM. \
+NOTE: Standard containment is insufficient. Paranatural dampeners installed. \
+NOTE 2: Dampeners are insufficient. Director has been informed. \
+NOTE 3: Director says keep it there. It hasn't tried to leave. \
+We are choosing to read that as good news.' \
+The entry after it was started and then torn out.").
+note(cell_annex, transfer_memo,
+    "An internal transfer memo still in its envelope, opened and re-folded: \
+'RE: ENTITY IN SOLITARY EAST. \
+Request to transfer subject to a deeper containment level has been DENIED. \
+Rationale: the building will not permit transfer. \
+The entity appears to have formed a locational attachment to Solitary East. \
+We have decided it is preferable to have it stationary and monitored \
+than mobile and uncontained. \
+Proceed with enhanced monitoring. — Director'").
+note(cell_annex, cell_manifest,
+    "A manifest of all occupied cells, tacked above the booking counter. \
+Most entries are standard: names, Bureau case numbers, detainment reasons. \
+Near the bottom, in a different ink and a different hand from all the others: \
+'SOLITARY EAST — DO NOT INTERACT. DO NOT MAKE EYE CONTACT. \
+DO NOT ENTER UNLESS YOU HAVE ALREADY ACCEPTED THAT YOU MAY NOT LEAVE. \
+— Warden (retired)'").
+
+note(watch_post, monitor_log,
+    "A shift log beside the monitor bank, entries going back months: \
+'0600: Subject stationary. 1200: Subject stationary. 1800: Subject stationary.' \
+Every entry, every shift, every day. \
+Then a gap of three days with nothing written. \
+Then one final entry in shaking handwriting: \
+'0600: Subject is no longer facing the wall.'").
+note(watch_post, psych_evaluation,
+    "A Bureau psychological evaluation form, partially completed for a guard named Reyes: \
+'Q: Do you feel safe in your current posting? A: No. \
+Q: Do you understand the purpose of your watch duties? A: I watch the thing in solitary. \
+Q: Has the subject ever communicated with you directly? A: Not in words. \
+Q: Please elaborate. A: It knows I'm watching. I know it knows. \
+We have been having this conversation through reinforced glass for four months. \
+I am requesting reassignment.' \
+STATUS stamp at the bottom: DENIED.").
+note(watch_post, routing_notice,
+    "A handwritten note taped directly to the solitary monitor screen: \
+'If you are reading this and you have a weapon, \
+you are the first person in two months who might be able to do something about that. \
+Go east from the hall. You'll find it. \
+It will find you first but that's okay. \
+It hasn\'t killed anyone yet — it\'s been waiting for something. \
+I think it\'s been waiting for you. — Last shift supervisor'").
 
 note(upper_hall, evacuation_notice,
     "A laminated evacuation notice, corners curling: 'In the event of a paranatural \
@@ -1299,6 +1377,27 @@ You try not to think about what was strong enough to do that \
 and what might still be in here doing it. \
 Keep moving. Don't look in the cells. \
 You already broke the second rule.").
+
+inner_thought(cell_annex, intake,
+    "Solitary East. The intake log gives it a cell number and a classification \
+like it's just another detainee. \
+Type 4 Entity. Maximum containment. Three escalating notes in the same file \
+and then a page torn out. \
+Whatever they put in that room, the paperwork stopped being adequate pretty quickly. \
+You look east toward the hall. \
+Something is at the end of it. \
+You already knew that.").
+
+inner_thought(watch_post, watching,
+    "Someone sat in this chair every day for months and watched a screen \
+showing something that didn't move, in a room that shouldn't exist on most floor plans. \
+And then one day it stopped facing the wall. \
+And then the log stops. \
+The feed is still running. \
+You can see the corridor in solitary from here, the same fixed angle. \
+You don't look at what's at the end of it. \
+You already know what's there. \
+You're going to have to go east eventually.").
 
 inner_thought(solitary, warden,
     "Something is wrong with the air in here. \
@@ -2056,6 +2155,8 @@ infectable_room(atrium).
 infectable_room(rejuvenation_room).
 infectable_room(resonance_lab).
 infectable_room(containment_hall).
+infectable_room(cell_annex).
+infectable_room(watch_post).
 infectable_room(janitor_hall).
 infectable_room(utility_bay).
 infectable_room(upper_hall).
@@ -3007,6 +3108,8 @@ restart_game :-
     assertz(object(health_kit,     records_room)),
     assertz(object(sense,          records_room)),
     assertz(object(health_kit,     containment_hall)),
+    assertz(object(charge_upgrade, cell_annex)),
+    assertz(object(health_kit,     watch_post)),
     assertz(object(health_kit,     solitary)),
     assertz(object(cat_statue,     upper_hall)),
     assertz(object(flower,         street)),
