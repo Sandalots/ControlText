@@ -244,6 +244,8 @@ visible_npc(ahti).
 visible_npc(vendor).
 visible_npc(dylan).
 visible_npc(drenchtov).
+visible_npc(hartwell).
+visible_npc(okoro).
 visible_npc(E) :-
     is_hiss_enemy(E),
     has(jesse, service_weapon).
@@ -379,6 +381,7 @@ announce_enemies(Room) :-
 :- assertz(object(health_upgrade, secret_chamber)).
 :- assertz(object(health_upgrade, toilets)).
 :- assertz(object(health_kit,     lobby)).
+:- assertz(location(okoro,        lab77)).
 :- assertz(object(health_kit,     security_post)).
 :- assertz(object(health_kit,     records_room)).
 :- assertz(object(health_kit,     containment_hall)).
@@ -391,6 +394,7 @@ announce_enemies(Room) :-
 :- assertz(object(shield,         demolition_room)).
 :- assertz(object(health_kit,     blast_corridor)).
 :- assertz(object(charge_upgrade, evidence_vault)).
+:- assertz(location(hartwell,     demolition_room)).
 
 /* ============================================
       MAP — connected(From, To, Direction)
@@ -1431,6 +1435,60 @@ talk_to(ahti) :-
     -> speak(ahti, "'Good. Keys open many doors,' Ahti says with a grin.")
     ;  speak(ahti, "'Lost? Keys are in the lobby,' Ahti says, pointing back.")
     ).
+
+talk_to(okoro) :-
+    location(jesse, lab77), !,
+    normal_text("A researcher in a white coat looks up from a terminal, visibly relieved to see another person."),
+    speak(okoro, "'Oh thank god. I thought I was the last one in this wing.'"),
+    normal_text("He gestures at the bench where the smash object sits."),
+    speak(okoro, "'Okoro. Materials Research. I've been here since the incident started \
+and I haven't left because — well, look at it.'"),
+    normal_text("He means the smash object. It's sitting perfectly still but seems somehow present."),
+    speak(okoro, "'It's a kinetic resonance object. Class: Breach. \
+We've been studying it for six months and the short version is: \
+it wants to go through things. Walls, specifically. \
+Sealed surfaces. Blocked passages.'"),
+    speak(okoro, "'You don't activate it. You don't aim it. \
+You just carry it. \
+Once you have it on you, certain sealed areas become navigable \
+— the object and the wall come to some kind of arrangement \
+and the path opens up.'"),
+    normal_text("He pulls up a schematic on the terminal."),
+    speak(okoro, "'From here, there's a chamber to the south that's been sealed since the seventies. \
+The object will get you through. \
+And there's a sub-level off the resonance lab on this floor — \
+same principle. Carry it, the way opens.'"),
+    speak(okoro, "'Take it. Carefully. \
+Don't put it down near anything structural you want to keep standing.'"),
+    normal_text("He sits back down at his terminal with the air of someone \
+who has done everything they can and is now waiting to see what happens.").
+
+talk_to(hartwell) :-
+    location(jesse, demolition_room), !,
+    normal_text("She's crouched near the pedestal, making notes on a clipboard. \
+She doesn't look up immediately."),
+    speak(hartwell, "'Don't touch it yet.'"),
+    normal_text("She stands, tucks the clipboard under her arm, and faces you."),
+    speak(hartwell, "'Hartwell. Parapsychics, Object Research. I've been studying this thing \
+since it arrived in this room, which was — '"),
+    normal_text("She checks the time."),
+    speak(hartwell, "'— not long, in the grand scheme of things. Long enough."),
+    speak(hartwell, "It's a resonance object. Object of Power. Class: Shielding. \
+What it does is absorb. One significant kinetic or paranatural impact — one hit — \
+then the barrier dissipates. Has to be reactivated manually each time.'"),
+    normal_text("You look at the shield hovering above the pedestal."),
+    speak(hartwell, "'Take it. It won't hurt you — it's already decided it wants a new host. \
+I've been watching it orient toward the door every time someone walks past. \
+That's you, by the way. It's been orienting toward you.'"),
+    speak(hartwell, "'When you need it, use the shield command. \
+You'll know when. The barrier goes up, takes the next hit, then it's gone. \
+Only good for one blow at a time, so don't waste it. \
+Use it when something is about to hurt you badly.'"),
+    normal_text("She turns back to her clipboard."),
+    speak(hartwell, "'I'd come with you but I have seventeen pages of field notes to finish \
+and the object isn't going to document itself. Good luck. \
+Try not to die."),
+    speak(hartwell, "Also — north of here is very bad. You probably already know that.'").
 
 talk_to(drenchtov) :-
     location(jesse, utility_bay), !,
@@ -2524,6 +2582,8 @@ parse([talk, ahti],       talk(ahti)).
 parse([talk, vendor],     talk(vendor)).
 parse([talk, dylan],      talk(dylan)).
 parse([talk, drenchtov],  talk(drenchtov)).
+parse([talk, hartwell],   talk(hartwell)).
+parse([talk, okoro],      talk(okoro)).
 
 parse([attack],               attack).
 parse([attack, hiss_guard],   attack(hiss_guard)).
@@ -2617,6 +2677,8 @@ dispatch(talk(ahti))       :- !, talk_to(ahti).
 dispatch(talk(vendor))     :- !, talk_to(vendor).
 dispatch(talk(dylan))      :- !, talk_to(dylan).
 dispatch(talk(drenchtov))  :- !, talk_to(drenchtov).
+dispatch(talk(hartwell))   :- !, talk_to(hartwell).
+dispatch(talk(okoro))      :- !, talk_to(okoro).
 
 dispatch(take(Obj))          :- !, take_item(Obj).
 dispatch(read(Name))         :- !, read_notes(Name).
@@ -2789,6 +2851,7 @@ restart_game :-
     assertz(object(health_upgrade, toilets)),
     assertz(object(charge_upgrade, atrium)),
     assertz(object(charge_upgrade, sub_lab)),
+    assertz(location(okoro,        lab77)),
     assertz(object(weapon_form,    resonance_lab)),
     assertz(object(health_kit,     lobby)),
     assertz(object(health_kit,     security_post)),
