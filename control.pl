@@ -1957,7 +1957,7 @@ combat(jesse, hiss_spawn) :-
     normal_text("You reach for a weapon... but you don't have the Service Weapon yet.").
 
 combat(jesse, hiss_spawn) :-
-    location(jesse, _Room), location(hiss_spawn, _Room),
+    location(jesse, _), location(hiss_spawn, _),
     has(jesse, service_weapon), health(hiss_spawn, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
     normal_text("You fire!"),
@@ -2047,7 +2047,7 @@ enemy_turn.
      2. Already dead   → report and stop.                          --- */
 
 combat(jesse, hiss_guard_b) :-
-    location(jesse, _Room), location(hiss_guard_b, _Room),
+    location(jesse, _), location(hiss_guard_b, _),
     has(jesse, service_weapon), health(hiss_guard_b, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
     normal_text("You fire!"),
@@ -2089,7 +2089,7 @@ enemy_turn_guard_b.
      2. Already dead   → report and stop.                          --- */
 
 combat(jesse, hiss_brute) :-
-    location(jesse, _Room), location(hiss_brute, _Room),
+    location(jesse, _), location(hiss_brute, _),
     has(jesse, service_weapon), health(hiss_brute, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
     normal_text("You fire!"),
@@ -2132,7 +2132,7 @@ enemy_turn_brute.
      2. Already dead   → report and stop.                          --- */
 
 combat(jesse, hiss_boss) :-
-    location(jesse, _Room), location(hiss_boss, _Room),
+    location(jesse, _), location(hiss_boss, _),
     has(jesse, service_weapon), health(hiss_boss, HP), HP > 0, !,
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
     normal_text("You fire!"),
@@ -3227,6 +3227,48 @@ game_loop :-
     ).
 
 /* ============================================
+      PROLOGUE  —  prologue/0
+      Displays Jesse's backstory and journey
+      to the Oldest House. Sets narrative tone.
+   ============================================ */
+
+prologue :-
+    writeln(""),
+    writeln(""),
+    writeln(""),
+    normal_text("════════════════════════════════════════════════════════════"),
+    writeln(""),
+    normal_text("You are Jesse Faden."),
+    writeln(""),
+    normal_text("For years you told yourself you did not care about your brother. Dylan"),
+    normal_text("ran toward the strange and unknowable, and you learned to run away."),
+    normal_text("It was safer. Saner."),
+    writeln(""),
+    normal_text("Then the dreams started. His voice calling from somewhere vast."),
+    normal_text("A building that did not exist on any map."),
+    normal_text("A place called the Oldest House."),
+    writeln(""),
+    normal_text("You ignored it for as long as you could. But the dreams grew louder,"),
+    normal_text("and Dylan's absence grew heavier, until ignoring became impossible."),
+    writeln(""),
+    normal_text("So you drove. You followed an address that should not exist."),
+    normal_text("You arrive at a building that seems ordinary and utterly wrong."),
+    normal_text("Tall. Featureless. Humming with a resonance you feel in your bones."),
+    writeln(""),
+    normal_text("The front doors wait. Inside, somewhere, Dylan is waiting too."),
+    writeln(""),
+    normal_text("And something else is waiting. Something that has been waiting."),
+    writeln(""),
+    normal_text("════════════════════════════════════════════════════════════"),
+    writeln(""),
+    writeln(""),
+    highlight_text("Press Enter to begin..."),
+    read_line_to_string(user_input, _),
+    writeln(""), writeln(""), writeln(""),
+    retractall(last_color(_)),
+    assertz(last_color(default)).
+
+/* ============================================
       GAME START  —  start/0
       Entry point called by initialization/2 in
       standalone mode.  
@@ -3245,6 +3287,7 @@ game_loop :-
    ============================================ */
 
 start :-
+    prologue,
     location(jesse, Room),
     show_map(Room),
     normal_text("You arrive at the Federal Bureau of Control."),

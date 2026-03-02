@@ -77,6 +77,7 @@
 
 :- dynamic output_buffer/1.  % output_buffer(ReversedList)
 :- dynamic last_buf_style/1. % last_buf_style(StyleAtom | none)
+:- dynamic prologue_shown/0.  % prologue_shown — flag for tracking prologue display
 
 % Initial facts — reset by buf_flush/1 and reset_game/0.
 output_buffer([]).
@@ -88,6 +89,9 @@ last_buf_style(none).
 %  style changes, so output blocks are visually
 %  separated in the browser without needing
 %  explicit blank lines in game logic.
+%
+%  Special styles (web-only):
+%    button — Renders as a clickable button in the browser.
 buf_add(Style, Text) :-
     % insert a spacer whenever the style changes (but not on first line)
     last_buf_style(Last),
@@ -218,69 +222,47 @@ writeln(Text) :-
 :- http_handler(root(start),        handle_start,  [method(post)]).
 :- http_handler(root(command),      handle_command,[method(post)]).
 
-%% serve_index(+Request)
-%  Serve index.html from the working directory.
-%  SWI's http_reply_file/3 handles ETag caching
-%  and Content-Type automatically.
-serve_index(Request) :-
-    http_reply_file('index.html', [], Request).
+%% show_prologue_only/0
+%  Display only the prologue (Jesse's backstory) to the buffer.
+%  Called on initial page load (handle_start/1) and on restart.
+show_prologue_only :-
+    writeln(""),
+    writeln(""),
+    writeln(""),
+    normal_text("════════════════════════════════════════════════════════════"),
+    writeln(""),
+    normal_text("You are Jesse Faden."),
+    writeln(""),
+    normal_text("For years you told yourself you did not care about your brother. Dylan"),
+    normal_text("ran toward the strange and unknowable, and you learned to run away."),
+    normal_text("It was safer. Saner."),
+    writeln(""),
+    normal_text("Then the dreams started. His voice calling from somewhere vast."),
+    normal_text("A building that did not exist on any map."),
+    normal_text("A place called the Oldest House."),
+    writeln(""),
+    normal_text("You ignored it for as long as you could. But the dreams grew louder,"),
+    normal_text("and Dylan's absence grew heavier, until ignoring became impossible."),
+    writeln(""),
+    normal_text("So you drove. You followed an address that should not exist."),
+    normal_text("You arrive at a building that seems ordinary and utterly wrong."),
+    normal_text("Tall. Featureless. Humming with a resonance you feel in your bones."),
+    writeln(""),
+    normal_text("The front doors wait. Inside, somewhere, Dylan is waiting too."),
+    writeln(""),
+    normal_text("And something else is waiting. Something that has been waiting."),
+    writeln(""),
+    normal_text("════════════════════════════════════════════════════════════"),
+    writeln(""),
+    writeln(""),
+    buf_add(button, "Start Game"),
+    writeln(""),
+    writeln("").
 
-%% handle_start(+Request)
-%  POST /start — called once when the browser page loads.
-%  Resets all dynamic game state to initial values via
-%  reset_game/0, renders the opening scene into the buffer
-%  via init_game_output/0, then flushes the buffer to JSON.
-%  The browser replaces any existing output with the result.
-handle_start(_Request) :-
-    reset_game,
-    init_game_output,
-    buf_flush(Lines),
-    reply_json_dict(_{lines: Lines, ok: true}).
-
-%% handle_command(+Request)
-%  POST /command — called for every player turn.
-%  Pipeline:
-%    1. Read JSON body: { input: "<player text>" }
-%    2. Lowercase and split on whitespace.
-%    3. Clean each token (strip punctuation, preserve
-%       alphanumeric codes like bureau47).
-%    4. Convert string tokens to atoms for parse/2.
-%    5. Skip empty input (e.g. player pressed Enter twice).
-%    6. parse/2 → if Command = restart, call reset_game
-%       and re-render the opening; otherwise dispatch/1.
-%    7. If parse/2 fails, buffer the error message.
-%    8. Flush buffer to JSON and reply.
-handle_command(Request) :-
-    http_read_json_dict(Request, Dict),
-    Input = Dict.input,
-    string_lower(Input, Lower),
-    split_string(Lower, " ", " \t", Words0),
-    maplist(clean_token_smart, Words0, Words),
-    maplist(atom_string, Tokens, Words),
-    ( Tokens \= [''] ->
-        ( parse(Tokens, Command)
-        -> ( Command = restart
-           -> reset_game,
-              buf_add(normal, "Game restarted!"),
-              init_game_output
-           ;  dispatch(Command)
-           )
-        ;  buf_add(error, "I don't understand.")
-        )
-    ; true
-    ),
-    buf_flush(Lines),
-    reply_json_dict(_{lines: Lines, ok: true}).
-
-%% init_game_output/0
-%  Render the opening scene into the output buffer.
-%  Called after reset_game/0 — either on first page
-%  load (handle_start/1) or after a 'restart' command
-%  (handle_command/1).
-%  Matches what the standalone start/0 predicate renders:
-%    map → intro text → tip → room description →
-%    notes → thoughts → items → occupants.
-init_game_output :-
+%% show_game_state/0
+%  Display the game state: map, intro text, tips, and current room details.
+%  Called after prologue on first command (handle_command/1).
+show_game_state :-
     location(jesse, Room),
     show_map(Room),
     normal_text("You arrive at the Federal Bureau of Control."),
@@ -293,6 +275,77 @@ init_game_output :-
     list_thoughts(Room),
     list_items(Room),
     list_occupants(Room).
+
+%% serve_index(+Request)
+%  Serve index.html from the working directory.
+%  SWI's http_reply_file/3 handles ETag caching
+%  and Content-Type automatically.
+serve_index(Request) :-
+    http_reply_file('index.html', [], Request).
+
+%% handle_start(+Request)
+%  POST /start — called once when the browser page loads.
+%  Resets all dynamic game state to initial values via
+%  reset_game/0, shows the prologue, and sets a flag to
+%  display the game state on the first command.
+handle_start(_Request) :-
+    reset_game,
+    retractall(prologue_shown),
+    show_prologue_only,
+    buf_flush(Lines),
+    reply_json_dict(_{lines: Lines, ok: true}).
+
+%% handle_command(+Request)
+%  POST /command — called for every player turn.
+%  On first call (prologue_shown not asserted): show the game state,
+%  then assert prologue_shown so future commands skip this step.
+%  Pipeline:
+%    1. Read JSON body: { input: "<player text>" }
+%    2. If prologue_shown not yet asserted: render game state and set flag
+%    3. Lowercase and split on whitespace.
+%    4. Clean each token (strip punctuation, preserve
+%       alphanumeric codes like bureau47).
+%    5. Convert string tokens to atoms for parse/2.
+%    6. Skip empty input (e.g. player pressed Enter twice).
+%    7. parse/2 → if Command = restart, call reset_game
+%       and re-render the opening; otherwise dispatch/1.
+%    8. If parse/2 fails, buffer the error message.
+%    9. Flush buffer to JSON and reply.
+handle_command(Request) :-
+    http_read_json_dict(Request, Dict),
+    ( \+ prologue_shown
+    -> show_game_state,
+       assertz(prologue_shown)
+    ; true
+    ),
+    Input = Dict.input,
+    string_lower(Input, Lower),
+    split_string(Lower, " ", " \t", Words0),
+    maplist(clean_token_smart, Words0, Words),
+    maplist(atom_string, Tokens, Words),
+    ( Tokens \= [''] ->
+        ( parse(Tokens, Command)
+        -> ( Command = restart
+           -> reset_game,
+              retractall(prologue_shown),
+              buf_add(normal, "Game restarted!"),
+              show_prologue_only
+           ;  dispatch(Command)
+           )
+        ;  buf_add(error, "I don't understand.")
+        )
+    ; true
+    ),
+    buf_flush(Lines),
+    reply_json_dict(_{lines: Lines, ok: true}).
+
+%% init_game_output/0
+%  Legacy: render opening scene (used for backward compatibility).
+%  For web server: kept for use when restart command is called
+%  without needing prologue_shown flag handling.
+init_game_output :-
+    show_prologue_only,
+    show_game_state.
 
 %% reset_game/0
 %  Full game reset for the web server context.
