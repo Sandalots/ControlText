@@ -1824,7 +1824,7 @@ enemy_turn_brute :-
        ;  true
        )
     ;  normal_text("The Hiss Brute swings wildly!"),
-       take_enemy_hit(30)
+       take_enemy_hit(20)
     ), !.
 enemy_turn_brute.
 
