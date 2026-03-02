@@ -243,6 +243,7 @@ note_text(Text) :-
 visible_npc(ahti).
 visible_npc(vendor).
 visible_npc(dylan).
+visible_npc(drenchtov).
 visible_npc(E) :-
     is_hiss_enemy(E),
     has(jesse, service_weapon).
@@ -341,6 +342,8 @@ announce_enemies(Room) :-
 
 :- assertz(location(jesse,        street)).
 :- assertz(location(ahti,         janitor_hall)).
+:- assertz(location(drenchtov,    utility_bay)).
+:- assertz(object(health_kit,     utility_bay)).
 :- assertz(location(hiss_brute,   atrium)).
 :- assertz(location(hiss_guard_b, containment_hall)).
 :- assertz(location(hiss_boss,    solitary)).
@@ -410,6 +413,8 @@ connected(lobby,        janitor_hall, east).
 connected(janitor_hall, lobby,        west).
 connected(janitor_hall, toilets,      north).
 connected(toilets,      janitor_hall, south).
+connected(janitor_hall, utility_bay,  south).
+connected(utility_bay,  janitor_hall, north).
 
 /* --- Atrium / containment — requires Service Weapon --- */
 connected(janitor_hall,     atrium,           east) :- has(jesse, service_weapon).
@@ -497,6 +502,15 @@ description(lobby,
 
 description(janitor_hall,
     "A narrow hallway. Ahti leans on his mop, watching you.").
+
+description(utility_bay,
+    "A cramped maintenance bay south of the hallway. \
+Shelves of cleaning supplies line the walls — mop heads, bleach drums, labelled bins. \
+A Bureau-issue safety notice board hangs lopsided above a folding table. \
+Sitting at the table, eating a sandwich and reading a form in triplicate, \
+is a man in a Bureau lanyard. He looks up at you with the calm expression \
+of someone who has decided that if he just keeps filling in forms, \
+everything will eventually resolve itself.").
 
 description(toilets,
     "A dimly lit bathroom. The smell of industrial cleaner hangs in the air. \
@@ -634,6 +648,7 @@ room_name(containment_hall, 'Containment Hall').
 room_name(solitary,         'Solitary Confinement').
 room_name(dylans_cell,      "Dylan's Cell").
 room_name(janitor_hall,     "Janitor's Hall").
+room_name(utility_bay,      'Utility Bay').
 room_name(directors_office, "Director's Office").
 room_name(anteroom,         'Anteroom').
 room_name(ops_room,         'Ops Room').
@@ -693,6 +708,28 @@ note(janitor_hall, ahti_notice,
     "A notice pinned above Ahti's cart in careful block letters: \
 'MON: Mop level 2. TUE: Mop level 2. WED: Mop level 2. \
 Every day the same. Routine is how we survive here. —A'").
+
+note(utility_bay, safety_board,
+    "The Bureau safety notice board. Most of it is standard: \
+'REPORT ALL PARANATURAL INCIDENTS TO YOUR LINE MANAGER.' \
+'OBJECTS OF INTEREST: DO NOT TOUCH UNLESS CLEARED.' \
+'HISS EXPOSURE: SEE PAMPHLET 7C.' \
+Pamphlet 7C is not attached. Someone wrote in biro: 'ASK DRENCHTOV.' \
+Drenchtov has apparently written back: 'DON'T ASK DRENCHTOV.'").
+note(utility_bay, supply_request,
+    "A Bureau supply requisition form in triplicate, mostly filled in: \
+'Item requested: (1) mop head, standard. (1) bleach, industrial. \
+(1) personnel extraction — high priority.' \
+The last line has been crossed out and rewritten four times. \
+Above it, in neat capitals: \
+'I AM AWARE THIS IS NOT A STANDARD SUPPLY REQUEST. PLEASE ADVISE. —Drenchtov'").
+note(utility_bay, evacuation_memo,
+    "A Bureau all-staff memo, rubber-stamped CONFIDENTIAL: \
+'BUILDING EVACUATION: All non-essential personnel are advised to proceed \
+to the designated rally point at their earliest convenience.' \
+Scrawled across the bottom: 'Conveniently, I cannot locate the rally point. \
+Conveniently, I cannot locate any personnel. \
+Conveniently, I have a sandwich. I will wait here. —D'").
 
 note(toilets, mirror_message,
     "Written in soap across the bathroom mirror, large unsteady letters: \
@@ -1038,6 +1075,16 @@ Whatever Ahti's seen in here, it didn't touch him. \
 You're not sure if that makes him the safest person in the building \
 or the most dangerous.").
 
+inner_thought(utility_bay, drenchtov,
+    "His name badge says DRENCHTOV, B. — Bureau Administration, Grade 3. \
+He is eating a sandwich. \
+The building is overrun, something is wrong with the walls, \
+people are dead, and he is eating a sandwich and filling in a form. \
+You've seen this before too: a certain kind of person who converts terror \
+into paperwork and paperwork into calm. \
+He's not okay. But he has a system. \
+Right now, you almost envy him the system.").
+
 inner_thought(directors_office, director,
     "He's still here. The Director. \
 Something moved him to end it in his own office, in his own chair, \
@@ -1282,6 +1329,26 @@ talk_to(ahti) :-
     -> speak(ahti, "'Good. Keys open many doors,' Ahti says with a grin.")
     ;  speak(ahti, "'Lost? Keys are in the lobby,' Ahti says, pointing back.")
     ).
+
+talk_to(drenchtov) :-
+    location(jesse, utility_bay), !,
+    speak(drenchtov, "'Oh. Hello.' He sets down his sandwich."),
+    normal_text("He looks at the Service Weapon. He looks at you. He looks back at his form."),
+    speak(drenchtov, "'Right. Are you by any chance the new Director?'"),
+    normal_text("You are not the new Director."),
+    speak(drenchtov, "'No, of course not. Too early.' He makes a small note."),
+    speak(drenchtov, "'I've been trying to reach someone in authority for — '"),
+    normal_text("He checks his watch."),
+    speak(drenchtov, "'— some time now. The Director's office is north, past the lobby, up through the building. \
+Senior staff would normally handle a situation like this but as far as I can tell \
+senior staff are either dead or making things considerably worse, so.'"),
+    normal_text("He picks up his sandwich again."),
+    speak(drenchtov, "'I'd try north of the lobby. That's where the Director works. Worked. \
+I'm going to stay here and finish this form. \
+Someone has to keep the paperwork current.'"),
+    normal_text("He seems sincere. You believe him. \
+You also believe he is going to be fine, in the way that very organised people \
+are sometimes inexplicably fine.").
 
 talk_to(vendor) :-
     location(jesse, food_vendor), !,
@@ -1716,6 +1783,7 @@ infectable_room(atrium).
 infectable_room(resonance_lab).
 infectable_room(containment_hall).
 infectable_room(janitor_hall).
+infectable_room(utility_bay).
 infectable_room(upper_hall).
 infectable_room(directors_office).
 infectable_room(anteroom).
@@ -2237,7 +2305,7 @@ describe_here :-
     announce_enemies(Room).
 
 %% list_occupants(+Room)
-%  Show friendly NPCs in the room with contextual talk tips.
+%  Show friendly NPCs in the room with a header and talk tip.
 %  Hiss enemies are handled separately by announce_enemies/1.
 list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
@@ -2245,14 +2313,18 @@ list_occupants(Room) :-
     ;  include(visible_npc, Others, Visible),
        exclude(is_hiss_enemy, Visible, Friendlies),
        ( Friendlies \= []
-       -> format(string(S), "You see: ~w", [Friendlies]),
-          highlight_text(S),
-          ( member(ahti,   Friendlies) -> tip_text("Tip: 'talk ahti' while you're here.")   ; true ),
-          ( member(vendor, Friendlies) -> tip_text("Tip: 'talk vendor' while you're here.") ; true ),
-          ( member(dylan,  Friendlies) -> tip_text("Tip: 'talk dylan' — this is what you came for.") ; true )
+       -> writeln(""),
+          highlight_text("People here:"),
+          maplist(announce_friendly_npc, Friendlies),
+          highlight_text("Use 'talk <name>' to speak with them."),
+          writeln("")
        ; true
        )
     ).
+
+announce_friendly_npc(Name) :-
+    format(string(S), "  ~w", [Name]),
+    note_text(S).
 
 /* ============================================
       HELP / STATUS COMMANDS
@@ -2346,9 +2418,10 @@ parse([walk, Dir], go(Dir)).
 parse([look],           look).
 parse([look, at, Obj],  look_at(Obj)).
 
-parse([talk, ahti],   talk(ahti)).
-parse([talk, vendor], talk(vendor)).
-parse([talk, dylan],  talk(dylan)).
+parse([talk, ahti],       talk(ahti)).
+parse([talk, vendor],     talk(vendor)).
+parse([talk, dylan],      talk(dylan)).
+parse([talk, drenchtov],  talk(drenchtov)).
 
 parse([attack],               attack).
 parse([attack, hiss_guard],   attack(hiss_guard)).
@@ -2438,9 +2511,10 @@ dispatch(go(Dir)) :- !,
     ; true
     ).
 
-dispatch(talk(ahti))   :- !, talk_to(ahti).
-dispatch(talk(vendor)) :- !, talk_to(vendor).
-dispatch(talk(dylan))  :- !, talk_to(dylan).
+dispatch(talk(ahti))       :- !, talk_to(ahti).
+dispatch(talk(vendor))     :- !, talk_to(vendor).
+dispatch(talk(dylan))      :- !, talk_to(dylan).
+dispatch(talk(drenchtov))  :- !, talk_to(drenchtov).
 
 dispatch(take(Obj))          :- !, take_item(Obj).
 dispatch(read(Name))         :- !, read_notes(Name).
@@ -2582,6 +2656,8 @@ restart_game :-
     % --- Re-assert initial locations ---
     assertz(location(jesse,        street)),
     assertz(location(ahti,         janitor_hall)),
+    assertz(location(drenchtov,    utility_bay)),
+    assertz(object(health_kit,     utility_bay)),
     assertz(location(hiss_brute,   atrium)),
     assertz(location(hiss_guard_b, containment_hall)),
     assertz(location(hiss_boss,    solitary)),
