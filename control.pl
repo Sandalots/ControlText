@@ -127,6 +127,7 @@
 :- discontiguous fire_weapon/2.
 :- discontiguous combat/2.
 :- discontiguous enemy_turn/0.
+:- discontiguous enemy_turn_spawn/0.
 :- discontiguous enemy_turn_guard_b/0.
 :- discontiguous enemy_turn_brute/0.
 :- discontiguous enemy_turn_boss/0.
@@ -265,6 +266,7 @@ visible_npc(E) :-
 %  Used by visible_npc/1, list_occupants/1, and movement guards.
 is_hiss_enemy(hiss_guard).
 is_hiss_enemy(hiss_guard_b).
+is_hiss_enemy(hiss_spawn).
 is_hiss_enemy(hiss_brute).
 is_hiss_enemy(hiss_boss).
 is_hiss_enemy(E) :- atom_concat(hiss_infection_, _, E).
@@ -274,6 +276,7 @@ is_hiss_enemy(E) :- atom_concat(hiss_infection_, _, E).
 %  hiss_guard and hiss_guard_b share the same display name.
 enemy_display_name(hiss_guard,   'Hiss Guard').
 enemy_display_name(hiss_guard_b, 'Hiss Guard').
+enemy_display_name(hiss_spawn,   'Hiss Spawn').
 enemy_display_name(hiss_brute,   'Hiss Brute').
 enemy_display_name(hiss_boss,    'Hiss Warden').
 enemy_display_name(E, 'Hiss (Infection)') :-
@@ -290,6 +293,11 @@ enemy_display_name(E, 'Hiss (Infection)') :-
 living_enemy_here(Room) :-
     location(hiss_guard, Room),
     health(hiss_guard, HP), HP > 0,
+    has(jesse, service_weapon).
+
+living_enemy_here(Room) :-
+    location(hiss_spawn, Room),
+    health(hiss_spawn, HP), HP > 0,
     has(jesse, service_weapon).
 
 living_enemy_here(Room) :-
@@ -1878,6 +1886,45 @@ fire_weapon(Enemy, FinalDmg, Cost) :-
      2. Weapon + alive → fire, then enemy_turn.
      3. Already dead   → report and stop.                          --- */
 
+combat(jesse, hiss_spawn) :-
+    \+ has(jesse, service_weapon), !,
+    normal_text("You reach for a weapon... but you don't have the Service Weapon yet.").
+
+combat(jesse, hiss_spawn) :-
+    location(jesse, Room), location(hiss_spawn, Room),
+    has(jesse, service_weapon), health(hiss_spawn, HP), HP > 0, !,
+    ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
+    weapon_dmg(10, ActDmg, Crit),
+    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+    NewHP is HP - ActDmg,
+    format(atom(Msg), "You fire! Hiss Spawn health: ~w -> ~w", [HP, NewHP]),
+    normal_text(Msg),
+    ( fire_weapon(hiss_spawn, ActDmg, Cost)
+    -> enemy_turn_spawn
+    ;  true
+    ).
+
+combat(jesse, hiss_spawn) :- !,
+    normal_text("The Hiss Spawn is already dead.").
+
+enemy_turn_spawn :-
+    ( health(hiss_spawn, HP), HP =< 0
+    -> highlight_text("═══════════════════════════════════"),
+       highlight_text("The Hiss Spawn dissolves into static."),
+       highlight_text("═══════════════════════════════════"),
+       ( location(hiss_spawn, R) -> retract(location(hiss_spawn, R)) ; true ),
+       ( max_weapon_charge(jesse, MC)
+       -> retractall(weapon_charge(jesse, _)),
+          assertz(weapon_charge(jesse, MC)),
+          format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
+          highlight_text(RMsg)
+       ;  true
+       )
+    ;  normal_text("The Hiss Spawn lunges at you!"),
+       take_enemy_hit(8)
+    ), !.
+enemy_turn_spawn.
+
 combat(jesse, hiss_guard) :-
     \+ has(jesse, service_weapon), !,
     normal_text("You reach for a weapon... but you don't have the Service Weapon yet.").
@@ -2132,6 +2179,7 @@ skip_turn :-
     ( location(hiss_boss,    Room), health(hiss_boss,    HP0), HP0 > 0 -> enemy_turn_boss
     ; location(hiss_brute,   Room), health(hiss_brute,   HP1), HP1 > 0 -> enemy_turn_brute
     ; location(hiss_guard_b, Room), health(hiss_guard_b, HP2), HP2 > 0 -> enemy_turn_guard_b
+    ; location(hiss_spawn,   Room), health(hiss_spawn,   HPS), HPS > 0 -> enemy_turn_spawn
     ; location(E, Room), atom_concat(hiss_infection_, _, E),
       health(E, EHP), EHP > 0                                           -> enemy_turn_infection(E, Room)
     ; enemy_turn   % hiss_guard fallback
@@ -2473,6 +2521,8 @@ apply_take(service_weapon, Room) :-
     normal_text("You take the Service Weapon."),
     assertz(location(hiss_guard, upper_hall)),
     assertz(health(hiss_guard, 30)),
+    assertz(location(hiss_spawn, lobby)),
+    assertz(health(hiss_spawn, 20)),
     assertz(weapon_just_taken),  % suppress infection check this turn
     highlight_text("A distant screech echoes through the building...").
 
@@ -2833,6 +2883,7 @@ parse([talk, hartwell],   talk(hartwell)).
 parse([talk, okoro],      talk(okoro)).
 
 parse([attack],               attack).
+parse([attack, hiss_spawn],   attack(hiss_spawn)).
 parse([attack, hiss_guard],   attack(hiss_guard)).
 parse([attack, hiss_guard_b], attack(hiss_guard_b)).
 parse([attack, hiss_brute],   attack(hiss_brute)).
@@ -2952,6 +3003,7 @@ dispatch(attack) :- !,
     ;  normal_text("There's nothing to attack here.")
     ).
 
+dispatch(attack(hiss_spawn))   :- !, combat(jesse, hiss_spawn).
 dispatch(attack(hiss_guard))   :- !, combat(jesse, hiss_guard).
 dispatch(attack(hiss_guard_b)) :- !, combat(jesse, hiss_guard_b).
 dispatch(attack(hiss_brute))   :- !, combat(jesse, hiss_brute).
