@@ -390,6 +390,8 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     containment_hall)).
 :- assertz(object(health_kit,     solitary)).
 :- assertz(object(charge_upgrade, atrium)).
+:- assertz(object(health_kit,     rejuvenation_room)).
+:- assertz(object(health_upgrade, rejuvenation_room)).
 :- assertz(object(charge_upgrade, sub_lab)).
 :- assertz(object(weapon_form,    resonance_lab)).
 :- assertz(object(cat_statue,     upper_hall)).
@@ -433,10 +435,12 @@ connected(janitor_hall, utility_bay,  south).
 connected(utility_bay,  janitor_hall, north).
 
 /* --- Atrium / containment — requires Service Weapon --- */
-connected(janitor_hall,     atrium,           east) :- has(jesse, service_weapon).
-connected(atrium,           janitor_hall,     west) :- has(jesse, service_weapon).
-connected(atrium,           containment_hall, east) :- has(jesse, service_weapon).
-connected(containment_hall, atrium,           west) :- has(jesse, service_weapon).
+connected(janitor_hall,     atrium,             east) :- has(jesse, service_weapon).
+connected(atrium,           janitor_hall,       west) :- has(jesse, service_weapon).
+connected(atrium,           containment_hall,   east) :- has(jesse, service_weapon).
+connected(containment_hall, atrium,             west) :- has(jesse, service_weapon).
+connected(atrium,           rejuvenation_room,  north) :- has(jesse, service_weapon).
+connected(rejuvenation_room, atrium,            south) :- has(jesse, service_weapon).
 
 /* --- Resonance Lab — requires Service Weapon --- */
 connected(atrium,        resonance_lab, south) :- has(jesse, service_weapon).
@@ -568,6 +572,16 @@ description(atrium,
 cover the floor, seeming to shift and breathe with an otherworldly rhythm. \
 The air feels heavy with presence.").
 
+description(rejuvenation_room,
+    "A low, quiet room off the north side of the atrium. \
+The walls are tiled in pale green ceramic, the grout still clean. \
+Recessed lighting hums at a frequency that feels deliberately calibrated — \
+not quite warm, not quite clinical, but something in between. \
+A row of reclining examination chairs faces a bank of monitoring equipment, \
+most of it still active. Drip lines hang from chrome stands, untouched. \
+The room smells faintly of something medicinal and something older than medicine. \
+You feel marginally better just standing in it.").
+
 description(resonance_lab,
     "A disused research lab buried behind the atrium. The walls are lined with \
 blackboards covered in resonance equations, half-erased and restless. \
@@ -688,8 +702,9 @@ You had one second to reconsider. You didn't take it.").
 
 room_name(street,           'The Street').
 room_name(lobby,            'The Lobby').
-room_name(atrium,           'The Atrium').
-room_name(resonance_lab,    'Resonance Lab').
+room_name(atrium,              'The Atrium').
+room_name(rejuvenation_room,   'Rejuvenation Room').
+room_name(resonance_lab,       'Resonance Lab').
 room_name(sub_lab,          'Sub-Lab').
 room_name(containment_hall, 'Containment Hall').
 room_name(solitary,         'Solitary Confinement').
@@ -849,6 +864,33 @@ note(atrium, cat_plinth,
     "A circular stone plinth sits at the centre of the atrium floor. \
 An inscription reads: 'The Watcher returns the way.' \
 A shallow recess on top looks like something should rest there.").
+
+note(rejuvenation_room, protocol_board,
+    "A laminated Bureau protocol sheet mounted beside the entrance: \
+'REJUVENATION SUITE — AUTHORISED PERSONNEL ONLY. \
+Residential resonance frequency: 7.83 Hz (calibrated). \
+Biological enhancement window: 20–40 minutes per session. \
+Note: extended exposure above 90 minutes has produced anomalous results in \
+three (3) subjects. Report any involuntary structural changes to your supervisor.' \
+At the bottom: 'What does involuntary structural changes mean? — L.' \
+Above: 'It means don't stay too long. — anonymous'").
+note(rejuvenation_room, research_summary,
+    "A bound research summary left open on the monitoring desk: \
+'Project BLOOM — Paranatural Bioregeneration: Year Two.' \
+The abstract reads: 'Subjects exposed to calibrated resonance fields \
+demonstrate accelerated tissue repair, elevated immune response, and in three cases, \
+complete reversal of chronic injury. \
+Mechanism remains unclear. The building appears to want subjects healthy. \
+The building's motivations in this matter are not fully understood \
+but are, so far, not adverse. Proceed with cautious optimism. — Project Lead'").
+note(rejuvenation_room, session_log,
+    "A handwritten session log clipped to one of the examination chairs: \
+'Day 1: Standard headache, gone by hour two. \
+Day 3: Old shoulder injury — the one from the car accident in 2019 — \
+completely undetected at scan. \
+Day 7: Dr V asked me to stop logging this. I'm continuing privately. \
+Whatever this room is doing, it's doing it on purpose. \
+The building knows I'm in here. I can feel it noticing. — Subject 4'").
 note(atrium, geometric_inscription,
     "Etched into the floor around the plinth, in a language that shouldn't be readable \
 but somehow is: 'The Astral Cat stood here before time was counted. \
@@ -1167,6 +1209,23 @@ You've seen geometry like this before. In the dreams. \
 There's something missing here. Something that should be here and isn't. \
 The room feels incomplete. Wrong. \
 Like a sentence with the last word cut out.").
+
+inner_thought(rejuvenation_room, healing,
+    "You can feel it working. That's the strange part — not that it works, \
+but that you can feel it. A warmth that starts at the edges and moves inward. \
+Like the building is paying attention to you specifically, \
+finding the places that are wrong and making them less wrong. \
+You've been in field hospitals. You've been in ERs. \
+Nothing has ever felt like this. \
+This feels like being wanted intact.").
+
+inner_thought(rejuvenation_room, cost,
+    "The protocol sheet said three subjects showed anomalous results after ninety minutes. \
+You don't ask what anomalous means because you think you already know. \
+The building heals you because it needs you functional. \
+That's a transaction, not a gift. \
+You take the supplies anyway. \
+You can think about what you owe later.").
 
 inner_thought(secret_chamber, dylan,
     "There he is. Dylan. \
@@ -1679,26 +1738,33 @@ check_death :-
     ; true
     ).
 
-%% weapon_dmg(+Base, -Actual)
-%  Returns actual damage: 3× Base if weapon_form_active, otherwise Base.
-weapon_dmg(Base, Actual) :-
-    ( weapon_form_active -> Actual is Base * 3 ; Actual = Base ).
+%% weapon_dmg(+Base, -Actual, -Crit)
+%  Returns actual damage and whether it was a critical hit.
+%  1-in-3 chance of crit: triples the (possibly weapon-form-boosted) damage.
+%  weapon_form_active first multiplies by 3, then crit multiplies by 3 again.
+weapon_dmg(Base, Actual, Crit) :-
+    ( weapon_form_active -> Boosted is Base * 3 ; Boosted = Base ),
+    random_between(1, 3, Roll),
+    ( Roll =:= 1
+    -> Actual is Boosted * 3, Crit = true
+    ;  Actual = Boosted,      Crit = false
+    ).
 
 %% fire_weapon(+Enemy, +BaseDmg)
 %  Core attack logic shared by all combat/2 clauses.
 %  If weapon_form_active: damage is 3× BaseDmg and costs 3 charges.
 %  Otherwise: damage is BaseDmg and costs 1 charge.
+%  1-in-3 chance of critical hit: triples the final damage.
 %  Fails (with message) if charge is insufficient for the current cost.
 %  On success: subtracts actual Dmg from Enemy's health fact and
 %  decrements Jesse's weapon_charge by the cost.
-fire_weapon(Enemy, BaseDmg) :-
+fire_weapon(Enemy, FinalDmg, Cost) :-
     weapon_charge(jesse, Charge),
-    ( weapon_form_active -> Cost = 3, Dmg is BaseDmg * 3 ; Cost = 1, Dmg = BaseDmg ),
     ( Charge < Cost
     -> highlight_text("Your weapon lacks the charge for that! Use 'skip' to recharge."),
        fail
     ;  health(Enemy, HP),
-       NewHP is HP - Dmg,
+       NewHP is HP - FinalDmg,
        retractall(health(Enemy, _)),
        assertz(health(Enemy, NewHP)),
        NewCharge is Charge - Cost,
@@ -1719,10 +1785,13 @@ combat(jesse, hiss_guard) :-
 
 combat(jesse, hiss_guard) :-
     has(jesse, service_weapon), health(hiss_guard, HP), HP > 0, !,
-    weapon_dmg(10, ActDmg), NewHP is HP - ActDmg,
+    ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
+    weapon_dmg(10, ActDmg, Crit),
+    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+    NewHP is HP - ActDmg,
     format(atom(Msg), "You fire! Hiss Guard health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
-    ( fire_weapon(hiss_guard, 10)
+    ( fire_weapon(hiss_guard, ActDmg, Cost)
     -> enemy_turn
     ;  true
     ).
@@ -1761,10 +1830,13 @@ enemy_turn.
 combat(jesse, hiss_guard_b) :-
     location(jesse, Room), location(hiss_guard_b, Room),
     has(jesse, service_weapon), health(hiss_guard_b, HP), HP > 0, !,
-    weapon_dmg(10, ActDmg), NewHP is HP - ActDmg,
+    ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
+    weapon_dmg(10, ActDmg, Crit),
+    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+    NewHP is HP - ActDmg,
     format(atom(Msg), "You fire! Hiss Guard health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
-    ( fire_weapon(hiss_guard_b, 10)
+    ( fire_weapon(hiss_guard_b, ActDmg, Cost)
     -> enemy_turn_guard_b
     ;  true
     ).
@@ -1799,10 +1871,13 @@ enemy_turn_guard_b.
 combat(jesse, hiss_brute) :-
     location(jesse, Room), location(hiss_brute, Room),
     has(jesse, service_weapon), health(hiss_brute, HP), HP > 0, !,
-    weapon_dmg(10, ActDmg), NewHP is HP - ActDmg,
+    ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
+    weapon_dmg(10, ActDmg, Crit),
+    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+    NewHP is HP - ActDmg,
     format(atom(Msg), "You fire! Hiss Brute health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
-    ( fire_weapon(hiss_brute, 10)
+    ( fire_weapon(hiss_brute, ActDmg, Cost)
     -> enemy_turn_brute
     ;  true
     ).
@@ -1838,10 +1913,13 @@ enemy_turn_brute.
 combat(jesse, hiss_boss) :-
     location(jesse, Room), location(hiss_boss, Room),
     has(jesse, service_weapon), health(hiss_boss, HP), HP > 0, !,
-    weapon_dmg(15, ActDmg), NewHP is HP - ActDmg,
+    ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
+    weapon_dmg(15, ActDmg, Crit),
+    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+    NewHP is HP - ActDmg,
     format(atom(Msg), "You fire at the Hiss Warden! Boss health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
-    ( fire_weapon(hiss_boss, 15)
+    ( fire_weapon(hiss_boss, ActDmg, Cost)
     -> enemy_turn_boss
     ;  true
     ).
@@ -1885,10 +1963,13 @@ combat(jesse, Enemy) :-
     atom_concat(hiss_infection_, _, Enemy),
     location(jesse, Room), location(Enemy, Room),
     has(jesse, service_weapon), health(Enemy, HP), HP > 0, !,
-    weapon_dmg(10, ActDmg), NewHP is HP - ActDmg,
+    ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
+    weapon_dmg(10, ActDmg, Crit),
+    ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
+    NewHP is HP - ActDmg,
     format(atom(Msg), "You fire at the Hiss! Enemy health: ~w -> ~w", [HP, NewHP]),
     normal_text(Msg),
-    ( fire_weapon(Enemy, 10)
+    ( fire_weapon(Enemy, ActDmg, Cost)
     -> enemy_turn_infection(Enemy, Room)
     ;  true
     ).
@@ -1972,6 +2053,7 @@ skip_turn :-
 %  Rooms eligible for random Hiss infection.
 infectable_room(lobby).
 infectable_room(atrium).
+infectable_room(rejuvenation_room).
 infectable_room(resonance_lab).
 infectable_room(containment_hall).
 infectable_room(janitor_hall).
@@ -2916,8 +2998,9 @@ restart_game :-
     assertz(object(health_upgrade, toilets)),
     assertz(object(charge_upgrade, pipe_room)),
     assertz(object(charge_upgrade, atrium)),
+    assertz(object(health_kit,     rejuvenation_room)),
+    assertz(object(health_upgrade, rejuvenation_room)),
     assertz(object(charge_upgrade, sub_lab)),
-    assertz(location(okoro,        lab77)),
     assertz(object(weapon_form,    resonance_lab)),
     assertz(object(health_kit,     lobby)),
     assertz(object(health_kit,     security_post)),
