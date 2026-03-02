@@ -2941,6 +2941,7 @@ show_help :-
     normal_text("Movement:  go north | go south | go east | go west | enter"),
     normal_text("Look:      look | look at <thing>"),
     normal_text("Map:       map | show map"),
+    normal_text("Quest:     quest | quests"),
     normal_text("Read:      read | read <note_name>"),
     normal_text("Think:     think <thought> (Jesse's inner thoughts)"),
     normal_text("Items:     take <item> | pick up <item>"),
@@ -2984,6 +2985,12 @@ show_inventory :-
        highlight_text("You are carrying:"),
        note_text(ItemStr)
     ).
+
+%% show_quest — display the current objective
+show_quest :-
+    highlight_text("═══ QUEST ═══"),
+    normal_text("Find your missing brother, Dylan by exploring the inside of The Oldest House."),
+    highlight_text("═════════════").
 
 /* ============================================
       PARSER  —  parse(+Tokens, -Command)
@@ -3059,6 +3066,8 @@ parse([help],   help).
 parse([health], health).
 parse([status], health).
 parse([charge], charge).
+parse([quest],  quest).
+parse([quests], quest).
 parse([skip],   skip).
 parse([wait],   skip).
 
@@ -3126,6 +3135,7 @@ dispatch(help)          :- !, show_help.
 dispatch(health)        :- !, show_health.
 dispatch(charge)        :- !, show_charge.
 dispatch(inventory)     :- !, show_inventory.
+dispatch(quest)         :- !, show_quest.
 
 dispatch(go(Dir)) :- !,
     move(jesse, Dir, Result),
@@ -3293,7 +3303,7 @@ start :-
     normal_text("You arrive at the Federal Bureau of Control."),
     normal_text("The building looms above you, humming with a strange, low resonance."),
     normal_text("Something pulls you toward the entrance."),
-    tip_text("Tip: try 'enter' or 'go north' to go inside. You can also go east to visit the food vendor."),
+    tip_text("Tip: Look at the map above to see available locations. Try 'go north' to enter The Oldest House, or 'go east'/'go west' to explore other areas."),
     tip_text("Tip: try 'help' to list all available commands."),
     description(Room, Desc),
     normal_text(Desc),
