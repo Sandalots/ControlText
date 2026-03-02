@@ -2953,7 +2953,7 @@ parse([activate, shield], shield).
       dispatch(attack) resolves the target
       automatically by checking living_enemy_here/1
       and testing enemies in priority order:
-        boss > brute > guard_b > guard > infection.
+        boss > brute > guard_b > guard > spawn > infection.
    ============================================ */
 
 dispatch(look)          :- !, describe_here.
@@ -2996,6 +2996,7 @@ dispatch(attack) :- !,
        ; location(hiss_brute,   Room), health(hiss_brute,   HP1), HP1 > 0 -> combat(jesse, hiss_brute)
        ; location(hiss_guard_b, Room), health(hiss_guard_b, HP2), HP2 > 0 -> combat(jesse, hiss_guard_b)
        ; location(hiss_guard,   Room), health(hiss_guard,   HP3), HP3 > 0 -> combat(jesse, hiss_guard)
+       ; location(hiss_spawn,   Room), health(hiss_spawn,   HP4), HP4 > 0 -> combat(jesse, hiss_spawn)
        ; location(E, Room), atom_concat(hiss_infection_, _, E),
          health(E, EHP), EHP > 0 -> combat(jesse, E)
        ; normal_text("There's nothing to attack here.")
