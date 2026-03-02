@@ -369,6 +369,7 @@ announce_enemies(Room) :-
 :- assertz(object(service_weapon, directors_office)).
 :- assertz(object(locked_box,     food_vendor)).
 :- assertz(object(smash,          lab77)).
+:- assertz(object(health_kit,     archive_bay)).
 :- assertz(object(health_upgrade, secret_chamber)).
 :- assertz(object(health_upgrade, toilets)).
 :- assertz(object(health_kit,     lobby)).
@@ -445,6 +446,10 @@ connected(lobby,        lab77_locked, west) :- \+ has(jesse, lab77_key).
 connected(lab77_locked, lobby,        east) :- \+ has(jesse, lab77_key).
 connected(lobby,        lab77,        west) :-   has(jesse, lab77_key).
 connected(lab77,        lobby,        east) :-   has(jesse, lab77_key).
+
+/* --- Archive Bay — west of Lab 77, no gate --- */
+connected(lab77,        archive_bay, west).
+connected(archive_bay,  lab77,       east).
 
 /* --- Secret chamber — requires smash object --- */
 connected(lab77,          secret_chamber, south) :- has(jesse, smash).
@@ -546,6 +551,12 @@ description(lab77_locked,
 description(lab77,
     "Inside Lab 77. Equipment hums softly on the walls. A smash object sits on a bench.").
 
+description(archive_bay,
+    "A long storage bay running west behind Lab 77. Metal shelving units line \
+the walls, loaded with sealed specimen crates and bound Bureau document files — \
+most of them labelled in a shorthand that no longer means anything. \
+The lights still flicker on. A first aid kit sits near the door, untouched.").
+
 description(secret_chamber,
     "A hidden chamber behind a crumbled wall. Strange equipment covers the shelves. \
 Your brother sits slumped in a chair, eyes closed.").
@@ -582,6 +593,7 @@ room_name(security_post,    'Security Post').
 room_name(records_room,     'Records Room').
 room_name(lab77,            'Lab 77').
 room_name(lab77_locked,     'Lab 77 (Locked)').
+room_name(archive_bay,      'Archive Bay').
 room_name(toilets,          'The Toilets').
 room_name(food_vendor,      'Food Vendor').
 room_name(west_road,        'West Road').
@@ -627,6 +639,15 @@ The House has been shifting after hours.").
 note(food_vendor, menu,
     "A grease-stained menu board reads: 'TODAY'S SPECIAL: Bureau Burger - Code: BUREAU47'").
 
+note(janitor_hall, ahti_notice,
+    "A notice pinned above Ahti's cart in careful block letters: \
+'MON: Mop level 2. TUE: Mop level 2. WED: Mop level 2. \
+Every day the same. Routine is how we survive here. —A'").
+
+note(toilets, mirror_message,
+    "Written in soap across the bathroom mirror, large unsteady letters: \
+'THEY ARE IN THE WALLS. IF YOU CAN READ THIS YOU ARE STILL YOU. STAY THAT WAY.'").
+
 note(atrium, cat_plinth,
     "A circular stone plinth sits at the centre of the atrium floor. \
 An inscription reads: 'The Watcher returns the way.' \
@@ -664,6 +685,12 @@ note(sub_lab, shelf_tag,
 'RESONANCE CAPACITOR — CHARGE AMPLIFICATION UNIT. \
 For use in weapon systems requiring extended discharge cycles. \
 Handle with care. Do not exceed rated capacity.'").
+
+note(containment_hall, breach_report,
+    "A pinned incident report, water-damaged: 'CELL BLOCK C — STATUS: COMPROMISED. \
+All units breached. Cause unknown. DO NOT attempt manual recontainment. \
+Wait for specialist team. — NOTE: Specialist team has not arrived. \
+This notice has been here for eleven days.'").
 
 note(upper_hall, evacuation_notice,
     "A laminated evacuation notice, corners curling: 'In the event of a paranatural \
@@ -718,6 +745,18 @@ note(lab77, experiment_log,
 note(lab77, warning_sign,
     "A faded warning sign: 'DANGER: Dimensional Anomaly Active. Personnel must maintain safety protocols.'").
 
+note(lab77_locked, door_notice,
+    "The official placard beside the sealed door reads: \
+'LAB 77 — RESTRICTED ACCESS — DIRECTOR CLEARANCE REQUIRED. \
+Unauthorised entry will result in immediate termination of employment.' \
+Below it, in biro: 'Also possibly just termination. — T'").
+
+note(archive_bay, requisition,
+    "A Bureau requisition form, unfiled: \
+'Request for additional containment units, Lab 77 annex. \
+Reason: current capacity exceeded. Estimated wait: 6 weeks. \
+Note: we may not have 6 weeks. —Dr. Darling'").
+
 note(secret_chamber, research_log,
     "Faded research log: 'Subject exhibits anomalous properties. Further containment required. —Dr. Darling'").
 note(secret_chamber, equipment_note,
@@ -740,6 +779,11 @@ Subject is not infected. Subject is leverage.'").
 note(solitary, scratched_door,
     "Scratched into the reinforced door at the far east end, from the inside: \
 'Jesse. If you somehow get here. I knew you would. —D'").
+
+note(dylans_cell, etched_wall,
+    "Scratched into the concrete beside the cot, small and careful: \
+'I stopped counting days. But she'll come. She always does. \
+I just have to stay me until she gets here. —D'").
 
 /* ============================================
       NOTE PREDICATES
@@ -918,6 +962,80 @@ not threatening, exactly. More like a question being asked \
 in a frequency your brain isn't built to answer. \
 You're going to pick it up anyway. \
 You already know that. The room already knows that.").
+
+inner_thought(food_vendor, locked_box,
+    "There's a locked box next to the food cart. The vendor hasn't mentioned it. \
+Maybe he doesn't know what's in it. Maybe he put it there and forgot. \
+The code has to be somewhere in this building — the Bureau documented everything. \
+Someone wrote it down. You just have to find the right piece of paper.").
+
+inner_thought(west_road, leaving,
+    "You could just walk. Nothing is stopping you. \
+Dylan isn't waiting at the end of every road in the world — just this one. \
+You look west. Somewhere out there is a normal city doing normal things. \
+You turn around. \
+You've been turning around all your life. \
+Just not usually this deliberately.").
+
+inner_thought(toilets, ordinary,
+    "Running water. Lights that work. The smell of industrial cleaner. \
+There is something almost funny about the whole thing — \
+the rest of the building is falling apart and the facilities are still clean. \
+You check your weapon. You breathe. \
+One minute of being a person in a bathroom. \
+Then back to work.").
+
+inner_thought(sub_lab, capacitor,
+    "An extended discharge unit — Bureau designation, shelf tag, everything labelled. \
+They were ready for this. Or ready for something like this. \
+You wonder if there's a difference. \
+You slide it into your pocket. \
+It doesn't hum. That's either a good sign or it just hasn't warmed up yet.").
+
+inner_thought(dylans_cell, finally,
+    "You've been rehearsing this in your head since the front door. \
+You thought you'd be angry. You thought maybe you'd arrive too late. \
+You didn't plan for him to just be Dylan — \
+exhausted, in a cell, watching the door like he knew exactly when it would open. \
+You didn't plan for that to be the hard part.").
+
+inner_thought(security_post, static,
+    "Every monitor is static. You stand in front of the bank of screens \
+and look for a pattern in the noise. There isn't one. \
+Or there is and it's running at a frequency you can't read. \
+Someone sat here every shift watching for exactly this. \
+The static was probably already there when they left. \
+They just didn't know what it meant yet.").
+
+inner_thought(records_room, files,
+    "This is the paper trail of something that shouldn't exist. \
+Incidents, containment protocols, personnel evaluations — all filed, indexed, \
+cross-referenced. The Bureau didn't just study the paranatural. They administered it. \
+It had a budget. Quarterly reviews. Probably HR complaints. \
+You'd laugh, but the H files are apparently walking.").
+
+inner_thought(lab77, darling,
+    "Darling's name is on everything in here. \
+The experiment logs, the safety protocols, the containment assessments. \
+Bureau's lead researcher. Face of institutional optimism \
+in the middle of dimensional collapse. \
+You wonder if he's still somewhere in the building. \
+You have a feeling that wondering that is the bad kind of sign.").
+
+inner_thought(demolition_room, shield,
+    "It's hovering. A few inches off the pedestal, rotating just slightly. \
+An Object of Power — same category as the Service Weapon. \
+You can feel it the same way: present, aware, waiting. \
+The demolition didn't touch it. Whatever took out the walls \
+hit everything else and left the shield exactly where it was. \
+It chose to stay. You walk toward it.").
+
+inner_thought(archive_bay, records,
+    "The Bureau kept records of everything. \
+Every anomaly, every incident, every person who walked in and didn't come out the same. \
+You had the idea that if you read enough files you could get ahead of it. \
+You open a crate. It hums faintly. \
+You close it again.").
 
 %% list_thoughts(+Room)
 %  Show available thought IDs for the current room.
@@ -1445,6 +1563,7 @@ infectable_room(directors_office).
 infectable_room(security_post).
 infectable_room(records_room).
 infectable_room(lab77).
+infectable_room(archive_bay).
 infectable_room(toilets).
 infectable_room(food_vendor).
 infectable_room(secret_chamber).
@@ -2322,6 +2441,7 @@ restart_game :-
     assertz(object(service_weapon, directors_office)),
     assertz(object(locked_box,     food_vendor)),
     assertz(object(smash,          lab77)),
+    assertz(object(health_kit,     archive_bay)),
     assertz(object(health_upgrade, secret_chamber)),
     assertz(object(health_upgrade, toilets)),
     assertz(object(charge_upgrade, atrium)),
