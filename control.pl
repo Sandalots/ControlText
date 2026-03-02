@@ -122,6 +122,27 @@
 :- dynamic sense_active/0.      % persistent: paranatural sense item taken; reveals adjacent enemies
 :- dynamic outside_attempts/1.  % outside_attempts(N) — escalating flavour counter
 
+/* ============================================
+      DISCONTIGUOUS DECLARATIONS
+      These predicates have clauses scattered
+      throughout the file (rather than grouped
+      all together). Allows organizing by
+      functionality (e.g. all combat-related
+      code together) instead of by predicate.
+      
+      Predicates with multiple enemy types
+      use multi-clause patterns where each
+      enemy variant gets grouped in the same
+      section for readability:
+        • combat(jesse, Enemy) has separate
+          sections for hiss_guard, hiss_guard_b,
+          hiss_brute, hiss_boss, hiss_spawn,
+          and infection entities.
+        • enemy_turn predicates (one per enemy
+          type) appear right after their
+          corresponding combat clauses.
+   ============================================ */
+
 :- discontiguous take_enemy_hit/1.
 :- discontiguous check_death/0.
 :- discontiguous fire_weapon/2.
@@ -1811,6 +1832,10 @@ show_credits :-
 %  Subtract Dmg from Jesse's health, or absorb with shield if active.
 %  After applying damage, prints both HP and charge as a HUD update,
 %  then calls check_death/0.
+%  
+%  Decision tree:
+%    • If shield is active: retract the active flag, show message, take no damage.
+%    • Otherwise: subtract damage from Jesse's current HP, show HUD with new values, check for death.
 take_enemy_hit(Dmg) :-
     ( shield_active
     -> retract(shield_active),
@@ -1849,6 +1874,11 @@ check_death :-
 %  Returns actual damage and whether it was a critical hit.
 %  1-in-3 chance of crit: triples the (possibly weapon-form-boosted) damage.
 %  weapon_form_active first multiplies by 3, then crit multiplies by 3 again.
+%  
+%  Damage calculation order:
+%    1. Check if weapon_form_active: if yes, multiply Base by 3 → Boosted. Otherwise Boosted = Base.
+%    2. Roll 1-3: if roll is 1 (33% chance), set Crit=true and Actual = Boosted*3.
+%                Otherwise Crit=false and Actual = Boosted (no crit multiplier).
 weapon_dmg(Base, Actual, Crit) :-
     ( weapon_form_active -> Boosted is Base * 3 ; Boosted = Base ),
     random_between(1, 3, Roll),
@@ -1857,14 +1887,17 @@ weapon_dmg(Base, Actual, Crit) :-
     ;  Actual = Boosted,      Crit = false
     ).
 
-%% fire_weapon(+Enemy, +BaseDmg)
-%  Core attack logic shared by all combat/2 clauses.
-%  If weapon_form_active: damage is 3× BaseDmg and costs 3 charges.
-%  Otherwise: damage is BaseDmg and costs 1 charge.
-%  1-in-3 chance of critical hit: triples the final damage.
-%  Fails (with message) if charge is insufficient for the current cost.
-%  On success: subtracts actual Dmg from Enemy's health fact and
-%  decrements Jesse's weapon_charge by the cost.
+%% fire_weapon(+Enemy, +FinalDmg, +Cost)
+%  Core weapon-firing logic shared by all combat/2 clauses.
+%  Checks current weapon charge against cost; fails if insufficient.
+%  On success: applies FinalDmg to target and decrements Jesse's weapon_charge.
+%  
+%  Important: FinalDmg and Cost are pre-calculated by the caller (combat/2)
+%  based on weapon_form_active state:
+%    • weapon_form_active: FinalDmg = 3 * base * (3 if crit else 1), Cost = 3
+%    • otherwise:         FinalDmg = 1 * base * (3 if crit else 1), Cost = 1
+%  
+%  This separation allows combat clauses to print damage info before firing.
 fire_weapon(Enemy, FinalDmg, Cost) :-
     weapon_charge(jesse, Charge),
     ( Charge < Cost
@@ -1880,8 +1913,9 @@ fire_weapon(Enemy, FinalDmg, Cost) :-
     ).
 
 %% hiss_attack_line(+DisplayName, -Line)
-%  Picks a random attack message from the pool, formatting
-%  DisplayName into the chosen template.
+%  Generates a random attack flavour message from the pool.
+%  Each template contains '~w' placeholder for the enemy's display name.
+%  Used to create varied enemy attack announcements during combat.
 hiss_attack_line(Name, Line) :-
     Templates = [
         "~w lashes out!",
@@ -1905,12 +1939,18 @@ miss_shot :-
     retractall(weapon_charge(jesse, _)),
     assertz(weapon_charge(jesse, NewC)).
 
-/* --- Hiss Guard (spawned in upper_hall when service_weapon is taken) ---
-   HP: 30  |  Player damage: 10/shot  |  Retaliates: 25 damage
+/* --- Hiss Spawn (dynamically spawned in upper_hall when service_weapon is taken) ---
+   HP: 30  |  Player damage: 10/shot  |  Retaliates: 8 damage
    Three clauses (ordered, each cut):
      1. No weapon yet  → explain and fail gracefully.
-     2. Weapon + alive → fire, then enemy_turn.
-     3. Already dead   → report and stop.                          --- */
+     2. Weapon + alive → calculate damage + crit, fire, then enemy_turn_spawn.
+     3. Already dead   → report and stop.
+   
+   The multi-clause pattern allows clean separation:
+     • Clause 1: handles pre-weapon state
+     • Clause 2: handles active combat (main logic)
+     • Clause 3: handles already-defeated state
+     Each clause has a cut (!) to prevent backtracking once a condition matches.         --- */
 
 combat(jesse, hiss_spawn) :-
     \+ has(jesse, service_weapon), !,
@@ -1934,7 +1974,12 @@ combat(jesse, hiss_spawn) :-
 combat(jesse, hiss_spawn) :- !,
     normal_text("The Hiss Spawn is already dead.").
 
-enemy_turn_spawn :-
+%% enemy_turn_spawn
+%  Hiss Spawn's turn to act: either die (if defeated) or attack.
+%  If defeated: show death message, remove from map, recharge player's weapon, drop health kit.
+%  If alive: generate random attack message and deal 8 damage to Jesse.
+%  The cut at the end prevents fallthrough to other clauses.
+enemyurn_spawn :-
     ( health(hiss_spawn, HP), HP =< 0
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Spawn dissolves into static."),
@@ -2175,23 +2220,31 @@ enemy_turn_infection(Enemy, Room) :-
     ), !.
 enemy_turn_infection(_, _).
 
-%% Fallback — catches attack commands with no valid target
+%% Fallback combat clause — catches attack commands with no valid target
+%  This is the catch-all clause that matches when none of the specific enemy
+%  combat clauses matched. It prevents error messages and gracefully informs
+%  the player that there's nothing to attack.
 combat(_, _) :-
     normal_text("There's nothing to attack here.").
 
 /* ============================================
-      SKIP TURN
+      SKIP TURN  —  skip_turn/0
       Recharges weapon by 1 and lets the
       highest-priority live enemy retaliate.
 
-      Priority order (highest first):
+      Priority order (highest first) ensures
+      the most dangerous enemy always retaliates:
         hiss_boss  →  hiss_brute  →  hiss_guard_b
-        →  hiss_infection_N  →  hiss_guard (fallback)
+        →  hiss_spawn  →  hiss_infection_N  →  hiss_guard (fallback)
 
-      Only usable when a live enemy is present.
+      Only usable when a live enemy is present (clause 1 cuts on success).
       If the weapon is already at max charge,
       the player is told but the enemy still
-      retaliates — so use with care.
+      retaliates — so use with care: a charge-full opponent gets a free turn.
+      
+      The if-then-else checks charge < max, increments if possible,
+      then examines enemies in priority order. The first matching
+      location/health/alive check triggers that enemy's turn predicate.
    ============================================ */
 
 skip_turn :-
@@ -2262,12 +2315,21 @@ room_enemy_free(Room) :-
 
 %% next_hiss_id(-Id)
 %  Generate a unique atom for a new infection entity (e.g. hiss_infection_3).
+%  Counts the number of existing hiss_infected(Room) facts and uses that
+%  count as a suffix. This ensures each dynamically spawned entity has
+%  a distinct atom name for tracking health, location, etc.
 next_hiss_id(Id) :-
     aggregate_all(count, hiss_infected(_), N),
     atomic_list_concat([hiss_infection_, N], Id).
 
 %% infect_room(+Room)
 %  Spawn a new Hiss infection entity in Room and alert the player.
+%  Sequence:
+%    1. Guard: fail if the room is already infected.
+%    2. Assert hiss_infected(Room) flag to mark the room as infected.
+%    3. Generate unique infection entity ID (e.g., hiss_infection_0).
+%    4. Create location, health, and initial appearance facts for that entity.
+%    5. Alert player with a distinct message depending on whether Jesse is in the room.
 infect_room(Room) :-
     \+ hiss_infected(Room),
     assertz(hiss_infected(Room)),
@@ -2288,6 +2350,11 @@ maybe_true(Prob) :-
 
 %% maybe_infect(+Room)
 %  20% chance to infect an eligible, enemy-free room.
+%  Guards prevent re-infection and ensure the room is empty of combat entities:
+%    • hiss_infected(Room) is already set → do nothing.
+%    • room_enemy_free(Room) is false → do nothing.
+%    • random roll fails (80% chance) → do nothing.
+%  If all guards pass, call infect_room/1 to spawn the infection.
 maybe_infect(Room) :-
     ( \+ hiss_infected(Room), room_enemy_free(Room), maybe_true(0.2)
     -> infect_room(Room)
@@ -2295,9 +2362,13 @@ maybe_infect(Room) :-
     ).
 
 %% infection_check(+Room)
-%  Called every time Jesse enters a room.
-%  Handles death_room instant-kill, weapon-pickup grace turn,
-%  and ordinary random infection.
+%  Called every time Jesse enters a room via the move/3 predicate.
+%  Central infection dispatch: handles three scenarios in order:
+%    1. Death_room: instant game over (some doors should never be opened).
+%    2. weapon_just_taken flag: suppress infection on the turn weapon is picked up
+%       (prevents cheap ambush on the same turn you get the weapon).
+%    3. Normal case: if Jesse has service_weapon and room is infectable,
+%       maybe_infect/1 handles the 20% random infection roll.
 infection_check(Room) :-
     ( Room = death_room
     -> assertz(game_over),
@@ -2331,18 +2402,19 @@ on_hiss_defeated(Room) :-
       MOVEMENT  —  move(+Actor, +Dir, -Result)
       Result is either `moved` or `blocked`.
 
-      Clauses are ordered — Prolog tries them
+      Clauses are STRICTLY ORDERED — Prolog tries them
       top to bottom and the FIRST matching cut
-      clause wins.  The order is:
+      clause wins.  The order is carefully controlled:
 
         1. Street wandering flavour
            Catches any invalid direction while
            Jesse is on the street and delegates
-           to funny_outside_message/0.
+           to funny_outside_message/0 for comedic output.
 
         2. Combat block
            If a live enemy is present, all exits
            are sealed until the enemy is defeated.
+           Critical for game balance: prevents escape.
 
         3. Locked-door messages (specific rooms)
            Custom "you need a key" messages for:
@@ -2350,14 +2422,17 @@ on_hiss_defeated(Room) :-
              lobby → lab77       (requires lab77_key)
              janitor_hall → east (requires service_weapon)
              solitary → east     (requires dylans_cell_key)
+           These come BEFORE standard movement so custom messages
+           override generic "You can't go that way." fails.
 
         4. Standard movement
-           Calls connected/3 to find the target
+           Uses connected/3 to find the target
            room, updates location/2, and runs
-           infection_check/1 for Jesse.
+           infection_check/1 for new room state.
 
         5. Dead-end fallback
            Prints "You can't go that way."
+           Only reached if all guards and connections fail.
    ============================================ */
 
 %% Street wandering — flavour messages instead of silent failure
@@ -2368,6 +2443,8 @@ move(jesse, Dir, blocked) :-
     funny_outside_message.
 
 %% Block movement while a live enemy is in the room
+%  Critical combat guard: prevents fleeing mid-combat.
+%  Lists all live enemies in the room as a reminder of who is still threatening.
 move(jesse, _, blocked) :-
     location(jesse, Room),
     living_enemy_here(Room), !,
@@ -2486,11 +2563,24 @@ take_item(Item) :-
     normal_text(Msg).
 
 %% apply_take(+Item, +Room)
-%  Item-specific pickup effects.  Clauses are ordered; each removes
-%  the object fact and asserts has(jesse, Item).
-
-%  health_upgrade — permanently raises max HP by 5 and heals 5 HP
-%                   (cannot exceed the new max).
+%  Item-specific pickup effects. Clauses are strictly ordered;
+%  Prolog will use the FIRST matching clause.
+%  
+%  Item classes:
+%    • Stat upgrades (health_upgrade, charge_upgrade):
+%      Increase permanent caps by fixed amounts and restore some current value.
+%      Cannot exceed the new cap.
+%    • sense: Grants persistent sense_active flag; subsequent rooms
+%      will show warnings for nearby enemies via show_sense/1.
+%    • health_kit: Instant heal to max; no-op if already full.
+%    • service_weapon: Branch point — spawns hiss_guard in upper_hall,
+%      hiss_spawn in lobby, and sets weapon_just_taken flag to suppress
+%      infection check on this same turn (grace turn).
+%    • weapon_form: Activates weapon_form_active flag.
+%      All subsequent attacks deal 3× damage but cost 3 charges per shot.
+%    • Generic fallback: Just move from object/2 to has/2 with a message.
+%  
+%  Each clause retract()s the object and assert()s the has() fact.
 apply_take(health_upgrade, Room) :-
     max_health(jesse, MaxHP),
     retract(object(health_upgrade, Room)),
@@ -2577,7 +2667,11 @@ apply_take(Item, Room) :-
     normal_text(M).
 
 %% look_at(+Obj)
-%  Examine a specific object. Only cat_statue has a custom description.
+%  Examine a specific object for item-specific descriptions.
+%  Most items have no special description and fall through to the
+%  generic "nothing special" response.
+%  The cat_statue is special: its description changes depending on
+%  whether Jesse is carrying it, if it's on the plinth, or if neither.
 look_at(cat_statue) :- !,
     ( has(jesse, cat_statue)
     -> normal_text("A small stone cat. It sits perfectly still in your hands. \
@@ -2756,6 +2850,22 @@ show_map(Current) :-
       occupants, items, then enemy announcements.
    ============================================ */
 
+%% describe_here
+%  Render the FULL room state: map, description, lore,
+%  NPCs, items, enemies, and sense warnings.
+%  
+%  Sequence:
+%    1. show_map: render relative cardinal map.
+%    2. description: atmospheric prose about the room.
+%    3. Tip (if food_vendor): hint for puzzle.
+%    4. list_notes: unread lore items.
+%    5. list_thoughts: Jesse's inner monologue options.
+%    6. list_occupants: friendly NPCs in the room.
+%    7. list_items: objects lying around for pickup.
+%    8. announce_enemies: live Hiss enemies with combat tip.
+%    9. show_sense: if sense_active, warn about adjacent enemies.
+%  
+%  Called whenever Jesse enters a room (from move/3) and on 'look' command.
 describe_here :-
     location(jesse, Room), !,
     show_map(Room),
@@ -2796,6 +2906,13 @@ show_sense(_).
 %% list_occupants(+Room)
 %  Show friendly NPCs in the room with a header and talk tip.
 %  Hiss enemies are handled separately by announce_enemies/1.
+%  
+%  Process:
+%    1. Find all non-jesse entities in the room.
+%    2. Filter to visible_npc/1 (friendly NPCs always visible;
+%       hiss enemies only visible with service_weapon).
+%    3. Exclude any Hiss enemies from the visible list.
+%    4. Print name of each friendly with a 'talk' instruction.
 list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
     ( Others = [] -> true
@@ -2873,6 +2990,15 @@ show_inventory :-
       Maps a list of lowercase atom tokens
       (produced by the game loop / server handler)
       to a command term consumed by dispatch/1.
+      
+      Design notes:
+      • Each clause handles a specific command pattern.
+      • All output directives (map_text, etc.) are
+        abstracted away from this module.
+      • Grammar is declarative: patterns are listed,
+        not written as grammar rules.
+      • If no clause matches, parse/2 fails;
+        the caller (game_loop) handles the failure.
 
       Grammar summary:
         Movement : go/move/walk + Dir
@@ -2972,20 +3098,25 @@ parse([activate, shield], shield).
       COMMAND DISPATCH  —  dispatch(+Command)
       Executes a command term produced by parse/2.
 
-      Each clause is deterministic (cut after
-      the first match) to prevent backtracking
-      into later clauses after a command runs.
+      Architecture:
+      • Each clause is deterministic (cut after
+        the first match) to prevent backtracking
+        into later clauses after a command runs.
+      • All state mutations (location changes, health
+        updates, item drops) happen in specific
+        predicate definitions, not here.
+      • This predicate is purely a router/dispatcher.
 
-      dispatch(go(Dir)) is the central navigation
-      handler: it calls move/3, then re-renders
-      the room description only on a successful
-      move and only if game_over has not been set
-      (e.g. death_room instant kill).
-
-      dispatch(attack) resolves the target
-      automatically by checking living_enemy_here/1
-      and testing enemies in priority order:
-        boss > brute > guard_b > guard > spawn > infection.
+      Special handling:
+      • dispatch(go(Dir)): navigation handler
+        → calls move/3 then re-renders room if successful.
+        → skips rendering if game_over (death trap rooms).
+        → move/3 handles all locks, combat blocks, etc.
+      • dispatch(attack): resolves target automatically
+        by checking living_enemy_here/1 and testing
+        enemies in priority order:
+          boss > brute > guard_b > guard > spawn > infection.
+      • dispatch(quit): graceful exit message.
    ============================================ */
 
 dispatch(look)          :- !, describe_here.
@@ -3021,6 +3152,12 @@ dispatch(restart)            :- !, restart_game.
 dispatch(quit)               :- !, normal_text("You step back from the House.").
 
 %% Generic attack — targets highest-priority live enemy in the room
+%  This clause handles 'attack' with no specific target.
+%  Enemy priority ensures the most dangerous foe is targeted first:
+%    hiss_boss > hiss_brute > hiss_guard_b > hiss_guard > hiss_spawn > hiss_infection_*
+%  The chain of if-then-else checks enemies in order; the first one found
+%  with HP > 0 triggers its combat clauses.
+%  Falls back to "nothing to attack" if no enemy is present or all are dead.
 dispatch(attack) :- !,
     location(jesse, Room),
     ( living_enemy_here(Room)
@@ -3054,14 +3191,18 @@ dispatch(Cmd) :-
         2. Reads a line from user_input.
         3. Lowercases and splits into tokens.
         4. Cleans each token with clean_token_smart/2.
-        5. Converts strings to atoms.
+        5. Converts strings to atoms for parsing.
         6. If game_over is set, only restart/quit
            are accepted; all other input shows the
            death message and loops.
         7. Otherwise attempts parse/2; on failure
            prints "I don't understand." and loops.
         8. On 'quit' the loop terminates; otherwise
-           tail-recurses.
+           tail-recurses to process next command.
+           
+      The game_over guard (step 6) ensures dead
+      players cannot issue movement or combat commands,
+      preserving game-over state until restart or quit.
    ============================================ */
 
 game_loop :-
@@ -3088,10 +3229,19 @@ game_loop :-
 /* ============================================
       GAME START  —  start/0
       Entry point called by initialization/2 in
-      standalone mode.  Renders the opening scene
-      (map, intro text, tips, room description,
-      notes, thoughts, occupants, items) and then
-      enters game_loop/0.
+      standalone mode.  
+      
+      Sequence:
+        1. Get Jesse's starting room (street).
+        2. Show relative map.
+        3. Print opening narrative.
+        4. Offer tips for new players.
+        5. Describe the room fully (description,
+           notes, thoughts, occupants, items).
+        6. Enter the main game_loop.
+           
+      After this predicate, the game is interactive:
+      the game_loop reads commands until quit or death.
    ============================================ */
 
 start :-
@@ -3117,6 +3267,11 @@ start :-
       then re-asserts the exact same initial
       configuration as the top-level assertz
       directives at file load time.
+      
+      Three clear phases:
+        1. retractall/1: clears every dynamic fact.
+        2. assertz/1 (locations): re-places entities.
+        3. assertz/1 (items): re-scatters items on map.
 
       Called by:
         dispatch(restart)       — from game loop
