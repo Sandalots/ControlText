@@ -861,7 +861,7 @@ show_credits :-
 /* ============================================
       COMBAT
       Each named enemy has a combat/2 clause
-      and a matching enemy_turn_*/0 clause.
+      and a matching enemy_turn_ 0 clause.
 
       Shared helpers:
         fire_weapon(+Enemy, +Dmg)
