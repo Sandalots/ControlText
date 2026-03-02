@@ -6,20 +6,6 @@
       CONTROL (2019). All story elements are
       an original fan adaptation.
 
-   ── ROOM GRAPH ──────────────────────────────
-      west_road ← street → food_vendor
-                     ↕ (enter/exit)
-                   lobby ──→ janitor_hall → toilets
-                     ↕ (keys)            ↕ (weapon)
-                upper_hall              atrium ──→ containment_hall (weapon)
-                  ↕   ↕ ↕               ↓ (weapon)       ↕ (weapon)
-      records  dir.off sec.post    resonance_lab        solitary
-                 ↕                               ↕ (dylans_cell_key)
-            demolition                       dylans_cell
-                 ↕
-            death_room
-      lobby → lab77 (lab77_key) → secret_chamber (smash)
-
    ── ENTITIES ────────────────────────────────
       Player: jesse
       NPCs:   ahti (janitor_hall)
@@ -53,6 +39,8 @@
       locked_box     — unlockable container at food_vendor
       weapon_form    — found in resonance_lab; triples weapon
                        damage but costs 3 charges per shot
+      charge_upgrade — also found in sub_lab (west of resonance_lab,
+                       requires smash)
 
    ── ARCHITECTURE ────────────────────────────
       This file is designed to run in two modes:
@@ -389,6 +377,7 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     containment_hall)).
 :- assertz(object(health_kit,     solitary)).
 :- assertz(object(charge_upgrade, atrium)).
+:- assertz(object(charge_upgrade, sub_lab)).
 :- assertz(object(weapon_form,    resonance_lab)).
 :- assertz(object(cat_statue,     upper_hall)).
 :- assertz(object(flower,         street)).
@@ -461,6 +450,10 @@ connected(lab77,        lobby,        east) :-   has(jesse, lab77_key).
 connected(lab77,          secret_chamber, south) :- has(jesse, smash).
 connected(secret_chamber, lab77,          north) :- has(jesse, smash).
 
+/* --- Sub-Lab — west of resonance_lab, requires smash --- */
+connected(resonance_lab, sub_lab,        west) :- has(jesse, smash).
+connected(sub_lab,       resonance_lab,  east) :- has(jesse, smash).
+
 /* ============================================
       ROOM DESCRIPTIONS
       Displayed on entry and with 'look'.
@@ -499,6 +492,14 @@ blackboards covered in resonance equations, half-erased and restless. \
 In the centre of the room, on a scorched examination table, sits a shifting \
 mass of paranatural energy barely contained in the form of a weapon. \
 The air hums with potential violence.").
+
+description(sub_lab,
+    "A cramped auxiliary lab, sealed off from the resonance chamber by a reinforced \
+wall — something punched a hole through it from the other side at some point. \
+The breach is still there, jagged and cold. \
+Inside: overturned equipment, a shattered monitor, and on a high shelf, \
+a Bureau-issue resonance capacitor, still charged. \
+Somehow the whole room just missed the worst of whatever happened here.").
 
 description(containment_hall,
     "A long reinforced corridor. Containment cells line both walls, most of them \
@@ -571,6 +572,7 @@ room_name(street,           'The Street').
 room_name(lobby,            'The Lobby').
 room_name(atrium,           'The Atrium').
 room_name(resonance_lab,    'Resonance Lab').
+room_name(sub_lab,          'Sub-Lab').
 room_name(containment_hall, 'Containment Hall').
 room_name(solitary,         'Solitary Confinement').
 room_name(dylans_cell,      "Dylan's Cell").
@@ -652,6 +654,16 @@ note(resonance_lab, scrawled_note,
     "Words scratched into the wall beside the table: \
 'It wants to be used. I can feel it pulling. But every time it fires, it takes \
 something with it — like it is eating the air. Three shots and the lights go out. —R.H.'").
+
+note(sub_lab, breach_memo,
+    "A crumpled internal memo, nearly illegible: 'Wall failure in auxiliary lab — \
+cause undetermined. Structural survey on hold pending paranatural clearance. \
+DO NOT enter sub-lab until survey complete. —Facilities'").
+note(sub_lab, shelf_tag,
+    "A label on the shelf above the capacitor, printed in Bureau font: \
+'RESONANCE CAPACITOR — CHARGE AMPLIFICATION UNIT. \
+For use in weapon systems requiring extended discharge cycles. \
+Handle with care. Do not exceed rated capacity.'").
 
 note(upper_hall, evacuation_notice,
     "A laminated evacuation notice, corners curling: 'In the event of a paranatural \
@@ -2313,6 +2325,7 @@ restart_game :-
     assertz(object(health_upgrade, secret_chamber)),
     assertz(object(health_upgrade, toilets)),
     assertz(object(charge_upgrade, atrium)),
+    assertz(object(charge_upgrade, sub_lab)),
     assertz(object(weapon_form,    resonance_lab)),
     assertz(object(health_kit,     lobby)),
     assertz(object(health_kit,     security_post)),
