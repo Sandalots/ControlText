@@ -367,6 +367,8 @@ announce_enemies(Room) :-
 
 :- assertz(object(keys,           lobby)).
 :- assertz(object(service_weapon, directors_office)).
+:- assertz(object(health_kit,     anteroom)).
+:- assertz(object(health_upgrade, ops_room)).
 :- assertz(object(locked_box,     food_vendor)).
 :- assertz(object(smash,          lab77)).
 :- assertz(object(health_kit,     archive_bay)).
@@ -383,6 +385,8 @@ announce_enemies(Room) :-
 :- assertz(object(cat_statue,     upper_hall)).
 :- assertz(object(flower,         street)).
 :- assertz(object(shield,         demolition_room)).
+:- assertz(object(health_kit,     blast_corridor)).
+:- assertz(object(charge_upgrade, evidence_vault)).
 
 /* ============================================
       MAP — connected(From, To, Direction)
@@ -440,6 +444,18 @@ connected(directors_office, demolition_room,  north).
 connected(demolition_room,  directors_office, south).
 connected(demolition_room,  death_room,       north).
 connected(death_room,       demolition_room,  south).
+
+/* --- Blast Corridor & Evidence Vault — flanking the Demolition Room --- */
+connected(demolition_room, blast_corridor,  west).
+connected(blast_corridor,  demolition_room, east).
+connected(demolition_room, evidence_vault,  east).
+connected(evidence_vault,  demolition_room, west).
+
+/* --- Anteroom & Ops Room — flanking the Director's office --- */
+connected(directors_office, anteroom, west).
+connected(anteroom,         directors_office, east).
+connected(directors_office, ops_room, east).
+connected(ops_room,         directors_office, west).
 
 /* --- Lab 77 — locked/unlocked depending on lab77_key --- */
 connected(lobby,        lab77_locked, west) :- \+ has(jesse, lab77_key).
@@ -545,6 +561,21 @@ a single bullet wound to the temple. In his outstretched hand — the Service We
 It hums faintly, as if waiting. Whatever drove him to this end, the weapon \
 chose to stay. Pick it up. You'll need it.").
 
+description(anteroom,
+    "A small private waiting room adjoining the Director's office. \
+Two leather chairs face each other across a low table, undisturbed. \
+A glass of water on the table is still full. \
+Whoever poured it never came back in. \
+Hanging on the wall: a framed Bureau charter, a commendation plaque, \
+and a photograph of a team of people none of whom appear to have faces.").
+
+description(ops_room,
+    "The Director's operational command post. Unlike the main office, this room \
+was clearly used right up until the end — papers everywhere, monitors still running, \
+an open radio crackling with static. \
+A tactical map of the Oldest House covers one wall, annotated in red. \
+Some of the annotations don't match any room you've been in yet.").
+
 description(lab77_locked,
     "A sealed laboratory door marked 'LAB 77' blocks your path. It's locked tight.").
 
@@ -566,6 +597,21 @@ description(demolition_room,
 Debris litters the floor. In the centre, hovering inches above a scorched pedestal, \
 a translucent hexagonal shield pulses with a pale blue light. \
 An Object of Power. It knows you're here.").
+
+description(blast_corridor,
+    "A service corridor running west from the demolition site. \
+The blast damage is worse here — the walls buckled inward, the ceiling cracked open, \
+and the floor is carpeted with powdered concrete and shattered glass. \
+Something large came through here in a hurry. \
+Or something large was pushed.").
+
+description(evidence_vault,
+    "A sealed archive room off the east side of the demolition chamber. \
+Heavy blast doors have warped in their frame but held — the room inside is \
+roughly intact. Metal shelving holds rows of sealed Bureau evidence canisters, \
+each labelled with a case number. \
+A single workbench in the centre holds an open canister and a half-written report. \
+Whoever was working here left without finishing the sentence.").
 
 description(death_room,
     "The air tears open. A wall of pure resonant noise hits you like a physical blow. \
@@ -589,6 +635,8 @@ room_name(solitary,         'Solitary Confinement').
 room_name(dylans_cell,      "Dylan's Cell").
 room_name(janitor_hall,     "Janitor's Hall").
 room_name(directors_office, "Director's Office").
+room_name(anteroom,         'Anteroom').
+room_name(ops_room,         'Ops Room').
 room_name(security_post,    'Security Post').
 room_name(records_room,     'Records Room').
 room_name(lab77,            'Lab 77').
@@ -599,6 +647,8 @@ room_name(food_vendor,      'Food Vendor').
 room_name(west_road,        'West Road').
 room_name(secret_chamber,   'Secret Chamber').
 room_name(demolition_room,  'Demolition Room').
+room_name(blast_corridor,   'Blast Corridor').
+room_name(evidence_vault,   'Evidence Vault').
 room_name(death_room,       'The Death Room').
 room_name(Room,              Room).  % fallback — return atom as-is
 
@@ -740,6 +790,44 @@ note(directors_office, memo_to_staff,
 Please disregard the sounds coming from the walls. This is normal. \
 Everything is normal. —Director'").
 
+note(anteroom, appointment_log,
+    "A leather-bound appointment diary, open on the last used page: \
+'0900 — Darling (Project Threshold debrief). \
+1100 — Security briefing re: upper levels. \
+1400 — REDACTED.' \
+The 1400 entry has been crossed out, then crossed out again, then torn half away.").
+note(anteroom, commendation,
+    "The framed commendation reads: 'Awarded to the Director for exceptional service \
+in the containment and study of paranatural phenomena. \
+The Bureau thanks you for your sacrifice.' \
+Below, in the Director's handwriting: 'They knew. They always knew.'").
+note(anteroom, photo_caption,
+    "The photograph on the wall has a caption typed on a strip of card \
+and taped below the frame: 'THRESHOLD TEAM — YEAR THREE.' \
+Five people. All standing. None with faces. \
+You look closer. The faces aren't missing. They're just turned away. \
+All five of them, turned to face something just outside the frame.").
+
+note(ops_room, tactical_annotation,
+    "One annotation on the wall map, circled in red three times: \
+'RESONANCE CONVERGENCE POINT — DO NOT TREAT AS FIXED.' \
+Below it, in increasingly hurried handwriting: \
+'It moves. —Day 1.' \
+'It's moving faster. —Day 4.' \
+'It found the weapon. —Day 7.' \
+Day 8 onward is blank.").
+note(ops_room, radio_log,
+    "A printed radio transmission log, the last entry time-stamped at 03:14: \
+'All units report Hiss incursion, floors 2 through 7. Director unresponsive. \
+Containment protocol abandoned. All personnel advised to — ' \
+The log ends mid-sentence. The printer is still warm.").
+note(ops_room, field_report,
+    "A handwritten field report, unsigned: \
+'The Service Weapon does not respond to standard issue personnel. \
+Attempts to retrieve have resulted in two injuries and one disappearance. \
+Conclusion: the weapon is choosing. Recommend we stop sending people \
+until it picks one. —Unknown'").
+
 note(lab77, experiment_log,
     "Lab journal entry: 'The specimens respond to the resonance. Containment fields holding. —Dr. Darling'").
 note(lab77, warning_sign,
@@ -770,6 +858,40 @@ note(demolition_room, important,
 'DO NOT ENTER THE ROOM TO THE NORTH. I REPEAT — DO NOT ENTER. \
 Three agents went in. None came back. Whatever is in there is not containable. \
 It is not survivable. Turn around. GO SOUTH. —Last surviving member of Retrieval Team 7'").
+
+note(blast_corridor, structural_report,
+    "A laminated structural survey, pinned to a buckled wall: \
+'WING C — NORTH ANNEX: UNSAFE FOR OCCUPANCY. \
+Load-bearing walls compromised. Ceiling integrity: critical. \
+Cause of damage: designation UNKNOWN. \
+Recommendation: full evacuation and controlled demolition.' \
+Handwritten below: 'No one left to do the demolition. —Eng. K'").
+note(blast_corridor, scorch_markings,
+    "In the scorch marks on the floor, partially obscured by debris: \
+a pattern. Concentric circles with a central point. \
+It wasn't made by the blast. The blast happened around it. \
+Something was standing here when the walls came in.").
+note(blast_corridor, survivor_note,
+    "Wedged behind a collapsed shelf unit, a handwritten note on Bureau stationery: \
+'Whoever finds this: the shield didn't cause this. \
+The shield STOPPED this. Whatever came through from the north, \
+the shield held it here. That's why the room looks like this. \
+That's why the shield is still there. —The last one out'").
+
+note(evidence_vault, open_canister,
+    "The open canister on the workbench is labelled: 'CASE 88-DELTA — OBJECT CLASS: RESONANT.' \
+The half-finished report reads: 'Object continues to exhibit autonomous behaviour. \
+It has now arranged the other canisters in the vault in order of — '").
+note(evidence_vault, case_index,
+    "A printed case index for the vault. Hundreds of entries. \
+You scan down the list. Near the bottom, one entry has been circled in red: \
+'CASE 91-ALPHA — SUBJECT: FADEN, J. — STATUS: PENDING ARRIVAL.' \
+The date on the entry is today.").
+note(evidence_vault, vault_memo,
+    "An internal memo taped to the blast door from the inside: \
+'Evidence vault secured per protocol. All case materials intact. \
+Note: Case 91-Alpha file has been updated in advance of subject arrival — \
+the House insisted. We have stopped asking how it knows. —Archivist'").
 
 note(solitary, warden_log,
     "A crumpled guard log: 'Subject 117 — Faden, D. — transferred to solitary east wing \
@@ -926,6 +1048,24 @@ and it's pointing at you now. \
 You pick up the gun. It feels right. \
 That's the part that scares you.").
 
+inner_thought(anteroom, waiting,
+    "Someone sat in this room not long ago and waited to go in. \
+Maybe for good news. Maybe for orders. \
+Maybe they already knew what they were going to find and sat here anyway, \
+because the waiting was better than the knowing. \
+You understand that. You sat in a lot of waiting rooms before you got here. \
+This one just has better furniture.").
+
+inner_thought(ops_room, map,
+    "The annotations stop on day seven. \
+Whatever the Director saw on day seven was enough. \
+You look at the map. The room marked RESONANCE CONVERGENCE POINT \
+is the atrium. You've been there. You stood in it. \
+You didn't feel like a convergence point. \
+You felt like someone standing in a very large room \
+not entirely sure what was happening. \
+Maybe that's the same thing.").
+
 inner_thought(upper_hall, deeper,
     "You're further in than you meant to go. \
 The lobby felt like a threshold — something you could still step back from. \
@@ -1029,6 +1169,24 @@ You can feel it the same way: present, aware, waiting. \
 The demolition didn't touch it. Whatever took out the walls \
 hit everything else and left the shield exactly where it was. \
 It chose to stay. You walk toward it.").
+
+inner_thought(blast_corridor, blast,
+    "The blast came from inside. \
+You can tell from the way the walls folded — \
+pressure expanding outward from a central point. \
+Whatever happened in the main chamber, the corridor caught the overflow. \
+And yet something was standing here in the middle of it \
+and left a pattern in the floor instead of a body. \
+You file that under things to think about later.").
+
+inner_thought(evidence_vault, case_file,
+    "Your name is in a file here. \
+Not Dylan's. Yours. \
+Date: today. Status: pending arrival. \
+They were expecting you before you knew you were coming. \
+You think about what that means. \
+You think about whether the Bureau found you or you found the Bureau. \
+You decide that question might not have an answer you want.").
 
 inner_thought(archive_bay, records,
     "The Bureau kept records of everything. \
@@ -1560,8 +1718,12 @@ infectable_room(containment_hall).
 infectable_room(janitor_hall).
 infectable_room(upper_hall).
 infectable_room(directors_office).
+infectable_room(anteroom).
+infectable_room(ops_room).
 infectable_room(security_post).
 infectable_room(records_room).
+infectable_room(blast_corridor).
+infectable_room(evidence_vault).
 infectable_room(lab77).
 infectable_room(archive_bay).
 infectable_room(toilets).
@@ -2439,6 +2601,8 @@ restart_game :-
     % --- Re-assert item placement ---
     assertz(object(keys,           lobby)),
     assertz(object(service_weapon, directors_office)),
+    assertz(object(health_kit,     anteroom)),
+    assertz(object(health_upgrade, ops_room)),
     assertz(object(locked_box,     food_vendor)),
     assertz(object(smash,          lab77)),
     assertz(object(health_kit,     archive_bay)),
@@ -2454,7 +2618,9 @@ restart_game :-
     assertz(object(health_kit,     solitary)),
     assertz(object(cat_statue,     upper_hall)),
     assertz(object(flower,         street)),
-    assertz(object(shield,         demolition_room)).
+    assertz(object(shield,         demolition_room)),
+    assertz(object(health_kit,     blast_corridor)),
+    assertz(object(charge_upgrade, evidence_vault)).
 
 /* ============================================
       ENTRY POINT
