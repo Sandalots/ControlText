@@ -2814,7 +2814,7 @@ show_map(Current) :-
     ArrowCol is CStart + CL // 2,
     spaces(ArrowCol, ArrowPad),
 
-    map_text(""),
+    map_text("═════════════════════════════════════════════════════════════"),
     map_text("Relative Map:"),
 
     ( NLabel \= ""
@@ -2848,7 +2848,7 @@ show_map(Current) :-
     ( room_name(Current, RoomName) -> true ; RoomName = Current ),
     format(atom(LocMsg), "Jesse is at: ~w", [RoomName]),
     map_text(LocMsg),
-    map_text("").
+    map_text("═════════════════════════════════════════════════════════════").
 
 /* ============================================
       DESCRIBE CURRENT ROOM
