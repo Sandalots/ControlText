@@ -1,0 +1,28 @@
+think brother
+think unarmed
+go east
+talk vendor
+read menu
+unlock locked_box BUREAU47
+inventory
+go west
+read welcome
+go north
+take keys
+think weapon
+go west
+take smash
+map
+go south
+take health_upgrade
+go north
+go east
+go north
+go north
+take service_weapon
+think director
+go north
+take shield
+read important
+go south
+go south
