@@ -2183,7 +2183,7 @@ enemy_turn_boss :-
        highlight_text("You pick up Dylan's cell key."),
        tip_text("The east door is now unlocked. Use 'go east' to reach Dylan's cell.")
     ;  hiss_attack_line('Hiss Warden', AL), normal_text(AL),
-       take_enemy_hit(28)
+       take_enemy_hit(23)
     ), !.
 enemy_turn_boss.
 
