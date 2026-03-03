@@ -41,6 +41,9 @@
       Then open http://localhost:8081/ in a browser.
    ============================================ */
 
+% Load control.pl BEFORE module declaration so assertions go to user module
+:- consult('control.pl').
+
 :- module(server, []).
 
 :- use_module(library(http/thread_httpd)). % multi-threaded HTTP server engine

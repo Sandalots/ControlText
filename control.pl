@@ -121,6 +121,7 @@
 :- dynamic weapon_form_active/0. % persistent: weapon form taken; 3× damage, 3-charge cost
 :- dynamic sense_active/0.      % persistent: paranatural sense item taken; reveals adjacent enemies
 :- dynamic outside_attempts/1.  % outside_attempts(N) — escalating flavour counter
+:- dynamic object_thrown/1.     % object_thrown(Item) — tracks single-use artifacts (object_of_power)
 
 /* ============================================
       DISCONTIGUOUS DECLARATIONS
@@ -425,6 +426,7 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     watch_post)).
 :- assertz(object(health_kit,     solitary)).
 :- assertz(object(charge_upgrade, atrium)).
+:- assertz(object(object_of_power, atrium)).
 :- assertz(object(health_kit,     rejuvenation_room)).
 :- assertz(object(health_upgrade, rejuvenation_room)).
 :- assertz(object(charge_upgrade, sub_lab)).
@@ -960,6 +962,12 @@ note(atrium, research_scrawl,
 'The resonance patterns converge at this point. Whatever belonged here \
 has been moved to the upper level for safekeeping. Bad idea. \
 The room has been wrong ever since. —R.H.'").
+note(atrium, artifact_warning,
+    "A hastily scrawled memo pinned to the wall: \
+'ARTIFACT CONTAINMENT WARNING: Object of Power recovered from collapsed chamber. \
+EXTREMELY VOLATILE when agitated. Staff authorized to deploy once per engagement only. \
+Use THROW command to unleash. DO NOT handle carelessly. \
+Aftermath of last discharge took three weeks to clean. —Facility Security'").
 
 note(resonance_lab, resonance_log,
     "Research log, partially destroyed: 'The resonance pattern coalesces around \
@@ -1320,6 +1328,12 @@ You've seen geometry like this before. In the dreams. \
 There's something missing here. Something that should be here and isn't. \
 The room feels incomplete. Wrong. \
 Like a sentence with the last word cut out.").
+
+inner_thought(atrium, object_power,
+    "The artifact lying here radiates something heavy—not weight, but intention. \
+Intent to do harm. The notes say THROW when it matters. One shot. \
+A weapon of last resort, pure and violent. \
+Part of you understands exactly what it wants to do.").
 
 inner_thought(rejuvenation_room, healing,
     "You can feel it working. That's the strange part — not that it works, \
@@ -2224,6 +2238,102 @@ enemy_turn_infection(Enemy, Room) :-
     ), !.
 enemy_turn_infection(_, _).
 
+/* ============================================
+      THROW ATTACK  —  throw_combat(Jesse, Enemy)
+      Special single-use attack using Object of Power.
+      Does 3x base damage (30 for most enemies, 45 for hiss_boss).
+      Marks the artifact as used for this combat encounter.
+      Always hits (no miss chance) and bypasses most defenses.
+*/
+
+throw_combat(jesse, hiss_spawn) :-
+    location(jesse, Room), location(hiss_spawn, Room),
+    has(jesse, object_of_power), health(hiss_spawn, HP), HP > 0, !,
+    highlight_text("You unleash the Object of Power!"),
+    speak(object_of_power, "The artifact screams with barely-contained force."),
+    ThrowDmg = 30,
+    NewHP is HP - ThrowDmg,
+    format(atom(Msg), "Hiss Spawn torn apart: ~w -> ~w", [HP, NewHP]),
+    highlight_text(Msg),
+    retractall(health(hiss_spawn, _)),
+    assertz(health(hiss_spawn, NewHP)),
+    assertz(object_thrown(object_of_power)),
+    enemy_turn_spawn(hiss_spawn, Room).
+
+throw_combat(jesse, hiss_guard) :-
+    location(jesse, Room), location(hiss_guard, Room),
+    has(jesse, object_of_power), health(hiss_guard, HP), HP > 0, !,
+    highlight_text("You unleash the Object of Power!"),
+    speak(object_of_power, "Reality warps and screams."),
+    ThrowDmg = 30,
+    NewHP is HP - ThrowDmg,
+    format(atom(Msg), "Hiss Guard obliterated: ~w -> ~w", [HP, NewHP]),
+    highlight_text(Msg),
+    retractall(health(hiss_guard, _)),
+    assertz(health(hiss_guard, NewHP)),
+    assertz(object_thrown(object_of_power)),
+    enemy_turn_guard(hiss_guard, Room).
+
+throw_combat(jesse, hiss_guard_b) :-
+    location(jesse, Room), location(hiss_guard_b, Room),
+    has(jesse, object_of_power), health(hiss_guard_b, HP), HP > 0, !,
+    highlight_text("You unleash the Object of Power!"),
+    speak(object_of_power, "The artifact fractures reality itself."),
+    ThrowDmg = 30,
+    NewHP is HP - ThrowDmg,
+    format(atom(Msg), "Hiss Guard Brute devastated: ~w -> ~w", [HP, NewHP]),
+    highlight_text(Msg),
+    retractall(health(hiss_guard_b, _)),
+    assertz(health(hiss_guard_b, NewHP)),
+    assertz(object_thrown(object_of_power)),
+    enemy_turn_guard_b(hiss_guard_b, Room).
+
+throw_combat(jesse, hiss_brute) :-
+    location(jesse, Room), location(hiss_brute, Room),
+    has(jesse, object_of_power), health(hiss_brute, HP), HP > 0, !,
+    highlight_text("You unleash the Object of Power!"),
+    speak(object_of_power, "A shockwave of pure destruction erupts."),
+    ThrowDmg = 30,
+    NewHP is HP - ThrowDmg,
+    format(atom(Msg), "Hiss Brute annihilated: ~w -> ~w", [HP, NewHP]),
+    highlight_text(Msg),
+    retractall(health(hiss_brute, _)),
+    assertz(health(hiss_brute, NewHP)),
+    assertz(object_thrown(object_of_power)),
+    enemy_turn_brute(hiss_brute, Room).
+
+throw_combat(jesse, hiss_boss) :-
+    location(jesse, Room), location(hiss_boss, Room),
+    has(jesse, object_of_power), health(hiss_boss, HP), HP > 0, !,
+    highlight_text("You unleash the Object of Power!"),
+    speak(object_of_power, "The artifact detonates with searing intensity."),
+    ThrowDmg = 45,
+    NewHP is HP - ThrowDmg,
+    format(atom(Msg), "Hiss Boss overwhelmed: ~w -> ~w", [HP, NewHP]),
+    highlight_text(Msg),
+    retractall(health(hiss_boss, _)),
+    assertz(health(hiss_boss, NewHP)),
+    assertz(object_thrown(object_of_power)),
+    enemy_turn_boss(hiss_boss, Room).
+
+throw_combat(jesse, Enemy) :-
+    atom_concat(hiss_infection_, _, Enemy),
+    location(jesse, Room), location(Enemy, Room),
+    has(jesse, object_of_power), health(Enemy, HP), HP > 0, !,
+    highlight_text("You unleash the Object of Power!"),
+    speak(object_of_power, "The infection is violently expelled from reality."),
+    ThrowDmg = 30,
+    NewHP is HP - ThrowDmg,
+    format(atom(Msg), "Hiss Infection obliterated: ~w -> ~w", [HP, NewHP]),
+    highlight_text(Msg),
+    retractall(health(Enemy, _)),
+    assertz(health(Enemy, NewHP)),
+    assertz(object_thrown(object_of_power)),
+    enemy_turn_infection(Enemy, Room).
+
+throw_combat(_, _) :-
+    normal_text("You can't throw at that.").
+
 %% Fallback combat clause — catches attack commands with no valid target
 %  This is the catch-all clause that matches when none of the specific enemy
 %  combat clauses matched. It prevents error messages and gracefully informs
@@ -2819,10 +2929,10 @@ show_map(Current) :-
     % For arrow calculation, calculate center of the location name itself
     atom_length(CenterBase, BaseLen),
     ( WBase = ""
-    -> % No west label: location starts at position 2 ([>)
+    -> % No west label: [CenterBase] starts at position 1, "[" is pos 1, name starts at pos 2
        ArrowCol is 1 + (BaseLen // 2)
     ;  atom_length(WBase, WL),
-       % With west label: location starts at WL + 5 + 2 = WL + 7
+       % West label (WL) + " <-- " (5) + "[" (1) = WL + 6, then add half of location length
        ArrowCol is WL + 6 + (BaseLen // 2)
     ),
     spaces(ArrowCol, ArrowPad),
@@ -3074,6 +3184,10 @@ parse([attack, hiss_guard_b], attack(hiss_guard_b)).
 parse([attack, hiss_brute],   attack(hiss_brute)).
 parse([attack, hiss_boss],    attack(hiss_boss)).
 
+parse([throw],       throw).
+parse([hurl],        throw).
+parse([unleash],     throw).
+
 parse([take, Item],     take(Item)).
 parse([pick, up, Item], take(Item)).
 
@@ -3203,6 +3317,27 @@ dispatch(attack) :- !,
     ;  normal_text("There's nothing to attack here.")
     ).
 
+dispatch(throw) :- !,
+    ( has(jesse, object_of_power)
+    -> ( object_thrown(object_of_power)
+       -> highlight_text("The artifact has already expended its power in this confrontation.")
+       ;  location(jesse, Room),
+          ( living_enemy_here(Room)
+          -> ( location(hiss_boss,    Room), health(hiss_boss,    HP0), HP0 > 0 -> throw_combat(jesse, hiss_boss)
+             ; location(hiss_brute,   Room), health(hiss_brute,   HP1), HP1 > 0 -> throw_combat(jesse, hiss_brute)
+             ; location(hiss_guard_b, Room), health(hiss_guard_b, HP2), HP2 > 0 -> throw_combat(jesse, hiss_guard_b)
+             ; location(hiss_guard,   Room), health(hiss_guard,   HP3), HP3 > 0 -> throw_combat(jesse, hiss_guard)
+             ; location(hiss_spawn,   Room), health(hiss_spawn,   HP4), HP4 > 0 -> throw_combat(jesse, hiss_spawn)
+             ; location(E, Room), atom_concat(hiss_infection_, _, E),
+               health(E, EHP), EHP > 0 -> throw_combat(jesse, E)
+             ; normal_text("The artifact's consciousness reaches out, but finds no presence to grasp. There is nothing here to target.")
+             )
+          ;  normal_text("The artifact lies dormant. There is no enemy presence here to target.")
+          )
+       )
+    ;  highlight_text("You don't have the Object of Power.")
+    ).
+
 dispatch(attack(hiss_spawn))   :- !, combat(jesse, hiss_spawn).
 dispatch(attack(hiss_guard))   :- !, combat(jesse, hiss_guard).
 dispatch(attack(hiss_guard_b)) :- !, combat(jesse, hiss_guard_b).
@@ -3297,9 +3432,8 @@ prologue :-
     normal_text("════════════════════════════════════════════════════════════"),
     writeln(""),
     writeln(""),
-    highlight_text("Press Enter to begin..."),
-    get_single_char(_),
-    writeln(""), writeln(""), writeln(""),
+    writeln(""),
+    writeln(""),
     retractall(last_color(_)),
     assertz(last_color(default)).
 
@@ -3373,6 +3507,7 @@ restart_game :-
     retractall(shield_active),
     retractall(weapon_form_active),
     retractall(sense_active),
+    retractall(object_thrown(_)),
     retractall(location(_, _)),
     retractall(health(_, _)),
     retractall(max_health(_, _)),
