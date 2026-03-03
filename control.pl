@@ -121,7 +121,7 @@
 :- dynamic weapon_form_active/0. % persistent: weapon form taken; 3× damage, 3-charge cost
 :- dynamic sense_active/0.      % persistent: paranatural sense item taken; reveals adjacent enemies
 :- dynamic outside_attempts/1.  % outside_attempts(N) — escalating flavour counter
-:- dynamic object_thrown/1.     % object_thrown(Item) — tracks single-use artifacts (object_of_power)
+:- dynamic throw_used/0.     % throw_used — tracks if throw artifact was used in current combat
 
 /* ============================================
       DISCONTIGUOUS DECLARATIONS
@@ -426,7 +426,7 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     watch_post)).
 :- assertz(object(health_kit,     solitary)).
 :- assertz(object(charge_upgrade, atrium)).
-:- assertz(object(object_of_power, atrium)).
+:- assertz(object(throw, atrium)).
 :- assertz(object(health_kit,     rejuvenation_room)).
 :- assertz(object(health_upgrade, rejuvenation_room)).
 :- assertz(object(charge_upgrade, sub_lab)).
@@ -964,8 +964,8 @@ has been moved to the upper level for safekeeping. Bad idea. \
 The room has been wrong ever since. —R.H.'").
 note(atrium, artifact_warning,
     "A hastily scrawled memo pinned to the wall: \
-'ARTIFACT CONTAINMENT WARNING: Object of Power recovered from collapsed chamber. \
-EXTREMELY VOLATILE when agitated. Staff authorized to deploy once per engagement only. \
+'ARTIFACT CONTAINMENT WARNING: Throw artifact recovered from collapsed chamber. \
+EXTREMELY VOLATILE when agitated. Staff authorized to deploy once per encounter only. \
 Use THROW command to unleash. DO NOT handle carelessly. \
 Aftermath of last discharge took three weeks to clean. —Facility Security'").
 
@@ -1330,8 +1330,8 @@ The room feels incomplete. Wrong. \
 Like a sentence with the last word cut out.").
 
 inner_thought(atrium, object_power,
-    "The artifact lying here radiates something heavy—not weight, but intention. \
-Intent to do harm. The notes say THROW when it matters. One shot. \
+    "The throw artifact lying here radiates something heavy—not weight, but intention. \
+Intent to do harm. The notes say THROW when it matters. One shot per encounter. \
 A weapon of last resort, pure and violent. \
 Part of you understands exactly what it wants to do.").
 
@@ -1997,11 +1997,12 @@ combat(jesse, hiss_spawn) :- !,
 %  If defeated: show death message, remove from map, recharge player's weapon, drop health kit.
 %  If alive: generate random attack message and deal 8 damage to Jesse.
 %  The cut at the end prevents fallthrough to other clauses.
-enemyurn_spawn :-
+enemy_turn_spawn :-
     ( health(hiss_spawn, HP), HP =< 0
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Spawn dissolves into static."),
        highlight_text("═══════════════════════════════════"),
+       retractall(throw_used),
        ( location(hiss_spawn, R) -> retract(location(hiss_spawn, R)) ; true ),
        ( max_weapon_charge(jesse, MC)
        -> retractall(weapon_charge(jesse, _)),
@@ -2041,6 +2042,7 @@ enemy_turn :-
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Guard collapses into silence."),
        highlight_text("═══════════════════════════════════"),
+       retractall(throw_used),
        ( location(hiss_guard, R) -> retract(location(hiss_guard, R)) ; true ),
        ( max_weapon_charge(jesse, MC)
        -> retractall(weapon_charge(jesse, _)),
@@ -2087,6 +2089,7 @@ enemy_turn_guard_b :-
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Guard collapses into silence."),
        highlight_text("═══════════════════════════════════"),
+       retractall(throw_used),
        ( location(hiss_guard_b, R) -> retract(location(hiss_guard_b, R)) ; true ),
        ( max_weapon_charge(jesse, MC)
        -> retractall(weapon_charge(jesse, _)),
@@ -2129,6 +2132,7 @@ enemy_turn_brute :-
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Brute crashes to the ground, silenced."),
        highlight_text("═══════════════════════════════════"),
+       retractall(throw_used),
        ( location(hiss_brute, R) -> retract(location(hiss_brute, R)) ; true ),
        ( max_weapon_charge(jesse, MC)
        -> retractall(weapon_charge(jesse, _)),
@@ -2172,6 +2176,7 @@ enemy_turn_boss :-
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss Warden crashes to the floor. Silence fills the block."),
        highlight_text("═══════════════════════════════════"),
+       retractall(throw_used),
        ( location(hiss_boss, R) -> retract(location(hiss_boss, R)) ; true ),
        ( max_weapon_charge(jesse, MC)
        -> retractall(weapon_charge(jesse, _)),
@@ -2224,6 +2229,7 @@ enemy_turn_infection(Enemy, Room) :-
     -> highlight_text("═══════════════════════════════════"),
        highlight_text("The Hiss infection is purged!"),
        highlight_text("═══════════════════════════════════"),
+       retractall(throw_used),
        retract(location(Enemy, Room)),
        ( max_weapon_charge(jesse, MC)
        -> retractall(weapon_charge(jesse, _)),
@@ -2248,9 +2254,9 @@ enemy_turn_infection(_, _).
 
 throw_combat(jesse, hiss_spawn) :-
     location(jesse, Room), location(hiss_spawn, Room),
-    has(jesse, object_of_power), health(hiss_spawn, HP), HP > 0, !,
-    highlight_text("You unleash the Object of Power!"),
-    speak(object_of_power, "The artifact screams with barely-contained force."),
+    has(jesse, throw), health(hiss_spawn, HP), HP > 0, !,
+    highlight_text("You unleash the throw!"),
+    speak(throw, "The artifact screams with barely-contained force."),
     ThrowDmg = 30,
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Spawn torn apart: ~w -> ~w", [HP, NewHP]),
@@ -2262,9 +2268,9 @@ throw_combat(jesse, hiss_spawn) :-
 
 throw_combat(jesse, hiss_guard) :-
     location(jesse, Room), location(hiss_guard, Room),
-    has(jesse, object_of_power), health(hiss_guard, HP), HP > 0, !,
-    highlight_text("You unleash the Object of Power!"),
-    speak(object_of_power, "Reality warps and screams."),
+    has(jesse, throw), health(hiss_guard, HP), HP > 0, !,
+    highlight_text("You unleash the throw!"),
+    speak(throw, "Reality warps and screams."),
     ThrowDmg = 30,
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Guard obliterated: ~w -> ~w", [HP, NewHP]),
@@ -2276,9 +2282,9 @@ throw_combat(jesse, hiss_guard) :-
 
 throw_combat(jesse, hiss_guard_b) :-
     location(jesse, Room), location(hiss_guard_b, Room),
-    has(jesse, object_of_power), health(hiss_guard_b, HP), HP > 0, !,
-    highlight_text("You unleash the Object of Power!"),
-    speak(object_of_power, "The artifact fractures reality itself."),
+    has(jesse, throw), health(hiss_guard_b, HP), HP > 0, !,
+    highlight_text("You unleash the throw!"),
+    speak(throw, "The artifact fractures reality itself."),
     ThrowDmg = 30,
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Guard Brute devastated: ~w -> ~w", [HP, NewHP]),
@@ -2290,9 +2296,9 @@ throw_combat(jesse, hiss_guard_b) :-
 
 throw_combat(jesse, hiss_brute) :-
     location(jesse, Room), location(hiss_brute, Room),
-    has(jesse, object_of_power), health(hiss_brute, HP), HP > 0, !,
-    highlight_text("You unleash the Object of Power!"),
-    speak(object_of_power, "A shockwave of pure destruction erupts."),
+    has(jesse, throw), health(hiss_brute, HP), HP > 0, !,
+    highlight_text("You unleash the throw!"),
+    speak(throw, "A shockwave of pure destruction erupts."),
     ThrowDmg = 30,
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Brute annihilated: ~w -> ~w", [HP, NewHP]),
@@ -2304,9 +2310,9 @@ throw_combat(jesse, hiss_brute) :-
 
 throw_combat(jesse, hiss_boss) :-
     location(jesse, Room), location(hiss_boss, Room),
-    has(jesse, object_of_power), health(hiss_boss, HP), HP > 0, !,
-    highlight_text("You unleash the Object of Power!"),
-    speak(object_of_power, "The artifact detonates with searing intensity."),
+    has(jesse, throw), health(hiss_boss, HP), HP > 0, !,
+    highlight_text("You unleash the throw!"),
+    speak(throw, "The artifact detonates with searing intensity."),
     ThrowDmg = 45,
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Boss overwhelmed: ~w -> ~w", [HP, NewHP]),
@@ -2319,9 +2325,9 @@ throw_combat(jesse, hiss_boss) :-
 throw_combat(jesse, Enemy) :-
     atom_concat(hiss_infection_, _, Enemy),
     location(jesse, Room), location(Enemy, Room),
-    has(jesse, object_of_power), health(Enemy, HP), HP > 0, !,
-    highlight_text("You unleash the Object of Power!"),
-    speak(object_of_power, "The infection is violently expelled from reality."),
+    has(jesse, throw), health(Enemy, HP), HP > 0, !,
+    highlight_text("You unleash the throw!"),
+    speak(throw, "The infection is violently expelled from reality."),
     ThrowDmg = 30,
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Infection obliterated: ~w -> ~w", [HP, NewHP]),
@@ -3318,8 +3324,8 @@ dispatch(attack) :- !,
     ).
 
 dispatch(throw) :- !,
-    ( has(jesse, object_of_power)
-    -> ( object_thrown(object_of_power)
+    ( has(jesse, throw)
+    -> ( throw_used
        -> highlight_text("The artifact has already expended its power in this confrontation.")
        ;  location(jesse, Room),
           ( living_enemy_here(Room)
@@ -3335,7 +3341,7 @@ dispatch(throw) :- !,
           ;  normal_text("The artifact lies dormant. There is no enemy presence here to target.")
           )
        )
-    ;  highlight_text("You don't have the Object of Power.")
+    ;  highlight_text("You don't have the throw artifact.")
     ).
 
 dispatch(attack(hiss_spawn))   :- !, combat(jesse, hiss_spawn).
@@ -3519,7 +3525,7 @@ restart_game :-
     retractall(shield_active),
     retractall(weapon_form_active),
     retractall(sense_active),
-    retractall(object_thrown(_)),
+    retractall(throw_used),
     retractall(location(_, _)),
     retractall(health(_, _)),
     retractall(max_health(_, _)),
@@ -3576,7 +3582,7 @@ restart_game :-
     assertz(object(charge_upgrade, cell_annex)),
     assertz(object(health_kit,     watch_post)),
     assertz(object(health_kit,     solitary)),
-    assertz(object(object_of_power, atrium)),
+    assertz(object(throw, atrium)),
     assertz(object(cat_statue,     upper_hall)),
     assertz(object(flower,         street)),
     assertz(object(shield,         demolition_room)),
