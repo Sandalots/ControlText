@@ -2844,7 +2844,7 @@ show_map(Current) :-
        map_line("~w~w", [SPad, SLabel])
     ; true ),
 
-    map_text(""),
+    map_text("═════════════════════════════════════════════════════════════"),
     ( room_name(Current, RoomName) -> true ; RoomName = Current ),
     format(atom(LocMsg), "Jesse is at: ~w", [RoomName]),
     map_text(LocMsg),
