@@ -1861,8 +1861,7 @@ take_enemy_hit(Dmg) :-
        highlight_text("The shield's barrier dissipates.")
     ;  health(jesse, JHP),
        NewJHP is JHP - Dmg,
-       retract(health(jesse, JHP)),
-       assertz(health(jesse, NewJHP)),
+       update_health(jesse, NewJHP),
        max_health(jesse, MaxHP),
        format(atom(HMsg), "Your Health: ~w/~w", [NewJHP, MaxHP]),
        highlight_text(HMsg),
@@ -1923,12 +1922,61 @@ fire_weapon(Enemy, FinalDmg, Cost) :-
        fail
     ;  health(Enemy, HP),
        NewHP is HP - FinalDmg,
-       retractall(health(Enemy, _)),
-       assertz(health(Enemy, NewHP)),
+       update_health(Enemy, NewHP),
        NewCharge is Charge - Cost,
-       retractall(weapon_charge(jesse, _)),
-       assertz(weapon_charge(jesse, NewCharge))
+       update_weapon_charge(jesse, NewCharge)
     ).
+
+/* ============================================
+      HELPER PREDICATES FOR STATE MANAGEMENT
+      Consolidate repeated update patterns
+      to reduce boilerplate and improve maintainability.
+   ============================================ */
+
+%% update_health(+Entity, +NewHP)
+%  Update entity health with retract/assertz pattern.
+update_health(Entity, NewHP) :-
+    retractall(health(Entity, _)),
+    assertz(health(Entity, NewHP)).
+
+%% update_weapon_charge(+Entity, +NewCharge)
+%  Update weapon charge state.
+update_weapon_charge(Entity, NewCharge) :-
+    retractall(weapon_charge(Entity, _)),
+    assertz(weapon_charge(Entity, NewCharge)).
+
+%% recharge_weapon
+%  Restore jesse's weapon to max charge and announce.
+recharge_weapon :-
+    max_weapon_charge(jesse, MC),
+    update_weapon_charge(jesse, MC),
+    format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
+    highlight_text(RMsg).
+
+%% weapon_cost(-Cost)
+%  Get cost of next attack based on current weapon form.
+weapon_cost(Cost) :-
+    ( weapon_form_active -> Cost = 3 ; Cost = 1 ).
+
+%% throw_damage(+Enemy, -Damage)
+%  Get throw artifact damage for specific enemy type.
+throw_damage(hiss_boss, 45) :- !.
+throw_damage(_, 30).  % All other enemies take 30 damage
+
+%% on_enemy_death(+Enemy, +DeathMsg)
+%  Consolidates death handling: display message, clear throw_used, remove from map, recharge weapon.
+on_enemy_death(Enemy, DeathMsg) :-
+    highlight_text("═══════════════════════════════════"),
+    highlight_text(DeathMsg),
+    highlight_text("═══════════════════════════════════"),
+    retractall(throw_used),
+    ( location(Enemy, R) -> retract(location(Enemy, R)) ; true ),
+    recharge_weapon.
+
+%% format_damage(+Before, +After, -Message)
+%  Format a health change message.
+format_damage(Before, After, Msg) :-
+    format(atom(Msg), "~w health: ~w -> ~w", [Before, After]).
 
 %% hiss_attack_line(+DisplayName, -Line)
 %  Generates a random attack flavour message from the pool.
@@ -1999,18 +2047,7 @@ combat(jesse, hiss_spawn) :- !,
 %  The cut at the end prevents fallthrough to other clauses.
 enemy_turn_spawn :-
     ( health(hiss_spawn, HP), HP =< 0
-    -> highlight_text("═══════════════════════════════════"),
-       highlight_text("The Hiss Spawn dissolves into static."),
-       highlight_text("═══════════════════════════════════"),
-       retractall(throw_used),
-       ( location(hiss_spawn, R) -> retract(location(hiss_spawn, R)) ; true ),
-       ( max_weapon_charge(jesse, MC)
-       -> retractall(weapon_charge(jesse, _)),
-          assertz(weapon_charge(jesse, MC)),
-          format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
-          highlight_text(RMsg)
-       ;  true
-       )
+    -> on_enemy_death(hiss_spawn, "The Hiss Spawn dissolves into static.")
     ;  hiss_attack_line('Hiss Spawn', AL), normal_text(AL),
        take_enemy_hit(8)
     ), !.
@@ -2025,32 +2062,21 @@ combat(jesse, hiss_guard) :-
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ),
     normal_text("You fire!"),
     ( random(MissR), MissR < 0.10
-    -> miss_shot, enemy_turn
+    -> miss_shot, enemy_turn_guard
     ;  weapon_dmg(10, ActDmg, Crit),
        ( Crit = true -> format(string(CM), "Critical hit! (~w damage)", [ActDmg]), highlight_text(CM) ; true ),
        NewHP is HP - ActDmg,
        format(atom(Msg), "Hiss Guard health: ~w -> ~w", [HP, NewHP]),
        note_text(Msg),
-       ( fire_weapon(hiss_guard, ActDmg, Cost) -> enemy_turn ; true )
+       ( fire_weapon(hiss_guard, ActDmg, Cost) -> enemy_turn_guard ; true )
     ).
 
 combat(jesse, hiss_guard) :- !,
     normal_text("The Hiss Guard is already dead.").
 
-enemy_turn :-
+enemy_turn_guard :-
     ( health(hiss_guard, HP), HP =< 0
-    -> highlight_text("═══════════════════════════════════"),
-       highlight_text("The Hiss Guard collapses into silence."),
-       highlight_text("═══════════════════════════════════"),
-       retractall(throw_used),
-       ( location(hiss_guard, R) -> retract(location(hiss_guard, R)) ; true ),
-       ( max_weapon_charge(jesse, MC)
-       -> retractall(weapon_charge(jesse, _)),
-          assertz(weapon_charge(jesse, MC)),
-          format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
-          highlight_text(RMsg)
-       ;  true
-       ),
+    -> on_enemy_death(hiss_guard, "The Hiss Guard collapses into silence."),
        ( health_kit_tip_shown -> true
        ; tip_text("Tip: look for health_kit items in rooms to restore health."),
          assertz(health_kit_tip_shown)
@@ -2058,7 +2084,7 @@ enemy_turn :-
     ;  hiss_attack_line('Hiss Guard', AL), normal_text(AL),
        take_enemy_hit(25)
     ), !.
-enemy_turn.
+enemy_turn_guard.
 
 /* --- Hiss Guard B (starts in containment_hall) ---
    HP: 30  |  Player damage: 10/shot  |  Retaliates: 25 damage
@@ -2086,18 +2112,7 @@ combat(jesse, hiss_guard_b) :- !,
 
 enemy_turn_guard_b :-
     ( health(hiss_guard_b, HP), HP =< 0
-    -> highlight_text("═══════════════════════════════════"),
-       highlight_text("The Hiss Guard collapses into silence."),
-       highlight_text("═══════════════════════════════════"),
-       retractall(throw_used),
-       ( location(hiss_guard_b, R) -> retract(location(hiss_guard_b, R)) ; true ),
-       ( max_weapon_charge(jesse, MC)
-       -> retractall(weapon_charge(jesse, _)),
-          assertz(weapon_charge(jesse, MC)),
-          format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
-          highlight_text(RMsg)
-       ;  true
-       )
+    -> on_enemy_death(hiss_guard_b, "The Hiss Guard collapses into silence.")
     ;  hiss_attack_line('Hiss Guard', AL), normal_text(AL),
        take_enemy_hit(25)
     ), !.
@@ -2129,18 +2144,7 @@ combat(jesse, hiss_brute) :- !,
 
 enemy_turn_brute :-
     ( health(hiss_brute, HP), HP =< 0
-    -> highlight_text("═══════════════════════════════════"),
-       highlight_text("The Hiss Brute crashes to the ground, silenced."),
-       highlight_text("═══════════════════════════════════"),
-       retractall(throw_used),
-       ( location(hiss_brute, R) -> retract(location(hiss_brute, R)) ; true ),
-       ( max_weapon_charge(jesse, MC)
-       -> retractall(weapon_charge(jesse, _)),
-          assertz(weapon_charge(jesse, MC)),
-          format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
-          highlight_text(RMsg)
-       ;  true
-       )
+    -> on_enemy_death(hiss_brute, "The Hiss Brute crashes to the ground, silenced.")
     ;  hiss_attack_line('Hiss Brute', AL), normal_text(AL),
        take_enemy_hit(20)
     ), !.
@@ -2173,24 +2177,13 @@ combat(jesse, hiss_boss) :- !,
 
 enemy_turn_boss :-
     ( health(hiss_boss, HP), HP =< 0
-    -> highlight_text("═══════════════════════════════════"),
-       highlight_text("The Hiss Warden crashes to the floor. Silence fills the block."),
-       highlight_text("═══════════════════════════════════"),
-       retractall(throw_used),
-       ( location(hiss_boss, R) -> retract(location(hiss_boss, R)) ; true ),
-       ( max_weapon_charge(jesse, MC)
-       -> retractall(weapon_charge(jesse, _)),
-          assertz(weapon_charge(jesse, MC)),
-          format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
-          highlight_text(RMsg)
-       ;  true
-       ),
+    -> on_enemy_death(hiss_boss, "The Hiss Warden crashes to the floor. Silence fills the block."),
        assertz(has(jesse, dylans_cell_key)),
        highlight_text("A KEY clatters to the floor. A label reads: CELL E‑1."),
        highlight_text("You pick up Dylan's cell key."),
        tip_text("The east door is now unlocked. Use 'go east' to reach Dylan's cell.")
     ;  hiss_attack_line('Hiss Warden', AL), normal_text(AL),
-       take_enemy_hit(35)
+       take_enemy_hit(28)
     ), !.
 enemy_turn_boss.
 
@@ -2231,13 +2224,7 @@ enemy_turn_infection(Enemy, Room) :-
        highlight_text("═══════════════════════════════════"),
        retractall(throw_used),
        retract(location(Enemy, Room)),
-       ( max_weapon_charge(jesse, MC)
-       -> retractall(weapon_charge(jesse, _)),
-          assertz(weapon_charge(jesse, MC)),
-          format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
-          highlight_text(RMsg)
-       ;  true
-       ),
+       recharge_weapon,
        on_hiss_defeated(Room)
     ;  hiss_attack_line('Hiss Infection', AL), normal_text(AL),
        take_enemy_hit(20)
@@ -2257,13 +2244,12 @@ throw_combat(jesse, hiss_spawn) :-
     has(jesse, throw), health(hiss_spawn, HP), HP > 0, !,
     highlight_text("You unleash the throw!"),
     speak(throw, "The artifact screams with barely-contained force."),
-    ThrowDmg = 30,
+    throw_damage(hiss_spawn, ThrowDmg),
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Spawn torn apart: ~w -> ~w", [HP, NewHP]),
     highlight_text(Msg),
-    retractall(health(hiss_spawn, _)),
-    assertz(health(hiss_spawn, NewHP)),
-    assertz(object_thrown(object_of_power)),
+    update_health(hiss_spawn, NewHP),
+    assertz(throw_used),
     enemy_turn_spawn.
 
 throw_combat(jesse, hiss_guard) :-
@@ -2271,13 +2257,12 @@ throw_combat(jesse, hiss_guard) :-
     has(jesse, throw), health(hiss_guard, HP), HP > 0, !,
     highlight_text("You unleash the throw!"),
     speak(throw, "Reality warps and screams."),
-    ThrowDmg = 30,
+    throw_damage(hiss_guard, ThrowDmg),
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Guard obliterated: ~w -> ~w", [HP, NewHP]),
     highlight_text(Msg),
-    retractall(health(hiss_guard, _)),
-    assertz(health(hiss_guard, NewHP)),
-    assertz(object_thrown(object_of_power)),
+    update_health(hiss_guard, NewHP),
+    assertz(throw_used),
     enemy_turn_guard.
 
 throw_combat(jesse, hiss_guard_b) :-
@@ -2285,13 +2270,12 @@ throw_combat(jesse, hiss_guard_b) :-
     has(jesse, throw), health(hiss_guard_b, HP), HP > 0, !,
     highlight_text("You unleash the throw!"),
     speak(throw, "The artifact fractures reality itself."),
-    ThrowDmg = 30,
+    throw_damage(hiss_guard_b, ThrowDmg),
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Guard Brute devastated: ~w -> ~w", [HP, NewHP]),
     highlight_text(Msg),
-    retractall(health(hiss_guard_b, _)),
-    assertz(health(hiss_guard_b, NewHP)),
-    assertz(object_thrown(object_of_power)),
+    update_health(hiss_guard_b, NewHP),
+    assertz(throw_used),
     enemy_turn_guard_b.
 
 throw_combat(jesse, hiss_brute) :-
@@ -2299,13 +2283,12 @@ throw_combat(jesse, hiss_brute) :-
     has(jesse, throw), health(hiss_brute, HP), HP > 0, !,
     highlight_text("You unleash the throw!"),
     speak(throw, "A shockwave of pure destruction erupts."),
-    ThrowDmg = 30,
+    throw_damage(hiss_brute, ThrowDmg),
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Brute annihilated: ~w -> ~w", [HP, NewHP]),
     highlight_text(Msg),
-    retractall(health(hiss_brute, _)),
-    assertz(health(hiss_brute, NewHP)),
-    assertz(object_thrown(object_of_power)),
+    update_health(hiss_brute, NewHP),
+    assertz(throw_used),
     enemy_turn_brute.
 
 throw_combat(jesse, hiss_boss) :-
@@ -2313,13 +2296,12 @@ throw_combat(jesse, hiss_boss) :-
     has(jesse, throw), health(hiss_boss, HP), HP > 0, !,
     highlight_text("You unleash the throw!"),
     speak(throw, "The artifact detonates with searing intensity."),
-    ThrowDmg = 45,
+    throw_damage(hiss_boss, ThrowDmg),
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Boss overwhelmed: ~w -> ~w", [HP, NewHP]),
     highlight_text(Msg),
-    retractall(health(hiss_boss, _)),
-    assertz(health(hiss_boss, NewHP)),
-    assertz(object_thrown(object_of_power)),
+    update_health(hiss_boss, NewHP),
+    assertz(throw_used),
     enemy_turn_boss.
 
 throw_combat(jesse, Enemy) :-
@@ -2328,13 +2310,12 @@ throw_combat(jesse, Enemy) :-
     has(jesse, throw), health(Enemy, HP), HP > 0, !,
     highlight_text("You unleash the throw!"),
     speak(throw, "The infection is violently expelled from reality."),
-    ThrowDmg = 30,
+    throw_damage(Enemy, ThrowDmg),
     NewHP is HP - ThrowDmg,
     format(atom(Msg), "Hiss Infection obliterated: ~w -> ~w", [HP, NewHP]),
     highlight_text(Msg),
-    retractall(health(Enemy, _)),
-    assertz(health(Enemy, NewHP)),
-    assertz(object_thrown(object_of_power)),
+    update_health(Enemy, NewHP),
+    assertz(throw_used),
     enemy_turn_infection(Enemy, Room).
 
 throw_combat(_, _) :-
