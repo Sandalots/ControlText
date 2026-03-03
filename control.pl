@@ -165,9 +165,10 @@
 
 %% clean_token_smart(+In, -Out)
 %  Keeps alphanumeric codes intact (e.g. bureau47);
+%  keeps pure numeric codes intact (e.g. 1200);
 %  strips leading/trailing punctuation from plain words.
 clean_token_smart(In, Out) :-
-    ( re_match('[a-z]+[0-9]|[0-9]+[a-z]'/i, In)
+    ( re_match('[a-z]+[0-9]|[0-9]+[a-z]|[0-9]+'/i, In)
     -> Out = In
     ;  clean_token(In, Out)
     ).
@@ -410,6 +411,7 @@ announce_enemies(Room) :-
 :- assertz(object(health_kit,     anteroom)).
 :- assertz(object(health_upgrade, ops_room)).
 :- assertz(object(locked_box,     food_vendor)).
+:- assertz(object(locked_suitcase, lobby)).
 :- assertz(object(health_kit,     north_alley)).
 :- assertz(object(smash,          lab77)).
 :- assertz(object(health_kit,     archive_bay)).
@@ -828,6 +830,11 @@ If found humming, do not open it.'").
 note(lobby, overtime_notice,
     "Notice to Staff: Overtime this week is mandatory. \
 The House has been shifting after hours.").
+
+note(lobby, wall_clock,
+    "An old Bureau wall clock hangs above the security desk. \
+Its hands are perfectly positioned: 12 o'clock high. \
+The time feels significant. The clock hasn't moved.").
 
 note(food_vendor, menu,
     "A grease-stained menu board reads: 'TODAY'S SPECIAL: Bureau Burger - Code: BUREAU47'").
@@ -1321,6 +1328,17 @@ You're going to have to search every corridor. Every office. \
 Every locked door you can find a key for. \
 Leave no room unchecked. \
 He's here. And you're not leaving until you find him.").
+
+inner_thought(lobby, clock,
+    "The wall clock above the security desk. Noon, exactly. \
+Or the building has decided that's what noon is. \
+12 o'clock straight up. 12:00. \
+Something about that time feels important. \
+You notice the locked suitcase on the bench. \
+Maybe someone needed a code to get inside. \
+Maybe they locked what was important with a time code. \
+1200. 12:00. The hour and the minute, no colon. \
+You'll remember that.").
 
 inner_thought(atrium, patterns,
     "The floor is doing something. Moving, almost — or just on the edge of moving. \
@@ -2788,13 +2806,37 @@ look_at(Obj) :-
     normal_text(Msg).
 
 %% unlock_item(+Item, +Code)
-%  Unlock the locked_box at the food_vendor with the correct code.
-%  Code BUREAU47 yields the lab77_key.
-%  Called with Code = none when the player types 'unlock locked_box'
-%  without a code (prints usage hint instead).
+%  Unlock containers with codes:
+%  • locked_box (food_vendor): code "bureau47" → lab77_key
+%  • locked_suitcase (lobby): code "1200" → +20 max_health
+%  Called with Code = none when player types 'unlock item' without code.
 unlock_item(Item, Code) :-
     atom_string(Item, S), string_lower(S, SL), atom_string(ItemAtom, SL),
-    ( ItemAtom = locked_box
+    ( ItemAtom = locked_suitcase
+    -> ( Code = none
+       -> location(jesse, lobby), object(locked_suitcase, lobby), !,
+          tip_text("Usage: unlock locked_suitcase <code>")
+       ;  location(jesse, lobby), object(locked_suitcase, lobby), !,
+          ( (Code = '1200' ; Code = '12:00')
+          -> retract(object(locked_suitcase, lobby)),
+             max_health(jesse, OldMax),
+             NewMax is OldMax + 20,
+             retractall(max_health(jesse, _)),
+             assertz(max_health(jesse, NewMax)),
+             highlight_text("You unlock the suitcase and find Bureau health supplements! \
+Your maximum health has permanently increased by 20!"),
+             format(atom(NewMaxMsg), "New Max Health: ~w", [NewMax]),
+             highlight_text(NewMaxMsg),
+             health(jesse, CurrentHP),
+             NewHP is min(CurrentHP + 20, NewMax),
+             update_health(jesse, NewHP),
+             format(atom(CurrentMsg), "Current Health: ~w/~w", [NewHP, NewMax]),
+             highlight_text(CurrentMsg),
+             tip_text("The suitcase has been added to your inventory.")
+          ;  color_ln(red, "That's not the right code.")
+          )
+       )
+    ;  ItemAtom = locked_box
     -> ( Code = none
        -> location(jesse, food_vendor), object(locked_box, food_vendor), !,
           tip_text("Usage: unlock locked_box <code>")
@@ -3153,6 +3195,10 @@ show_quest :-
 parse([go,   Dir], go(Dir)).
 parse([move, Dir], go(Dir)).
 parse([walk, Dir], go(Dir)).
+parse([up],    go(north)).
+parse([down],  go(south)).
+parse([left],  go(west)).
+parse([right], go(east)).
 
 parse([look],           look).
 parse([look, at, Obj],  look_at(Obj)).
@@ -3165,6 +3211,7 @@ parse([talk, hartwell],   talk(hartwell)).
 parse([talk, okoro],      talk(okoro)).
 
 parse([attack],               attack).
+parse([a],                    attack).
 parse([attack, hiss_spawn],   attack(hiss_spawn)).
 parse([attack, hiss_guard],   attack(hiss_guard)).
 parse([attack, hiss_guard_b], attack(hiss_guard_b)).
@@ -3544,6 +3591,7 @@ restart_game :-
     assertz(object(health_kit,     anteroom)),
     assertz(object(health_upgrade, ops_room)),
     assertz(object(locked_box,     food_vendor)),
+    assertz(object(locked_suitcase, lobby)),
     assertz(object(health_kit,     north_alley)),
     assertz(object(smash,          lab77)),
     assertz(object(health_kit,     archive_bay)),
