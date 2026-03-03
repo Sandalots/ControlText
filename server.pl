@@ -48,9 +48,6 @@
 :- use_module(library(http/http_json)).     % http_read_json_dict/2, reply_json_dict/1
 :- use_module(library(http/http_files)).    % http_reply_file/3 for static files
 
-% After module declaration, import user module facts so they're visible
-:- use_module(user).
-
 % Declare output predicates as multifile so control.pl won't conflict
 :- multifile normal_text/1.
 :- multifile highlight_text/1.
@@ -375,11 +372,16 @@ handle_command(Request) :-
     maplist(atom_string, Tokens, Words),
     ( Tokens \= [''] ->
         ( parse(Tokens, Command)
-        -> ( Command = restart
-           -> reset_game,
-              retractall(prologue_shown),
-              buf_add(normal, "Game restarted!"),
-              show_prologue_only
+        -> ( game_over
+           -> ( Command = restart
+              -> reset_game,
+                 retractall(prologue_shown),
+                 buf_add(normal, "Game restarted!"),
+                 show_prologue_only
+              ; Command = quit
+              -> true  % quit allowed when dead
+              ; buf_add(normal, "You are dead. Type 'restart' to try again or 'quit' to exit.")
+              )
            ;  dispatch(Command)
            )
         ;  buf_add(error, "I don't understand.")
