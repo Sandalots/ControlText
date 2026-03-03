@@ -318,6 +318,7 @@ show_game_state :-
     normal_text(Desc),
     writeln(""),
     tip_text("Tip: Look at the map above to see available locations. Try 'go north' to enter The Oldest House, or 'go east'/'go west' to explore other areas."),
+    tip_text("Tip: try 'help' to list all available commands."),
     list_notes(Room),
     list_thoughts(Room),
     list_items(Room),
