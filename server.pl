@@ -168,11 +168,10 @@ note_text(Text)      :- buf_add(note, Text).
 speak(_, Text)       :- buf_add(speak, Text). % NPC identity ignored; style is uniform
 
 %% map_line(+Fmt, +Args)  [override]
-%  Format and output location map lines, detecting bracketed names [name]
-%  and styling them as bold for better visibility on the web.
+%  Format and output location map lines.
 map_line(Fmt, Args) :-
     format(string(S), Fmt, Args),
-    map_line_with_bold(S).
+    map_text(S).
 
 %% map_line_with_bold(+Text)
 %  Helper to detect [name] patterns (which may contain ANSI codes) and 

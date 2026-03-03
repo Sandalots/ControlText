@@ -3293,7 +3293,7 @@ prologue :-
     writeln(""),
     writeln(""),
     highlight_text("Press Enter to begin..."),
-    read_line_to_string(user_input, _),
+    get_single_char(_),
     writeln(""), writeln(""), writeln(""),
     retractall(last_color(_)),
     assertz(last_color(default)).
