@@ -1,0 +1,4 @@
+use swipl control.pl for the cli interface for my control game.
+or use swipl server.pl for the server hosted version, where the link to the webpage is given in the cli when running the server.pl. 
+
+the transcript provides the route and items required and a complete picture to reach the goal state of finding the protagonists brother however as the game contains randomised enemy spawns you may have to defeat enemies using attack where the transcript does not.
