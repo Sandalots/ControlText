@@ -3576,6 +3576,7 @@ restart_game :-
     assertz(object(charge_upgrade, cell_annex)),
     assertz(object(health_kit,     watch_post)),
     assertz(object(health_kit,     solitary)),
+    assertz(object(object_of_power, atrium)),
     assertz(object(cat_statue,     upper_hall)),
     assertz(object(flower,         street)),
     assertz(object(shield,         demolition_room)),
