@@ -41,15 +41,15 @@
       Then open http://localhost:8081/ in a browser.
    ============================================ */
 
-% Load control.pl BEFORE module declaration so assertions go to user module
-:- consult('control.pl').
-
 :- module(server, []).
 
 :- use_module(library(http/thread_httpd)). % multi-threaded HTTP server engine
 :- use_module(library(http/http_dispatch)). % declarative route dispatch table
 :- use_module(library(http/http_json)).     % http_read_json_dict/2, reply_json_dict/1
 :- use_module(library(http/http_files)).    % http_reply_file/3 for static files
+
+% Load control.pl AFTER module declaration so its :- if(\+ current_module(server)) guards work
+:- consult('control.pl').
 
 /* ============================================
       OUTPUT BUFFER
@@ -160,6 +160,18 @@ buf_flush(Lines) :-
 
 % last_color/1 is kept as a stub — buf_add tracks style instead.
 :- dynamic last_color/1.
+
+% Declare output predicates as multifile to suppress redefinition warnings
+:- multifile normal_text/1.
+:- multifile highlight_text/1.
+:- multifile map_text/1.
+:- multifile map_text_bold/1.
+:- multifile tip_text/1.
+:- multifile note_text/1.
+:- multifile speak/2.
+:- multifile color_ln/2.
+:- multifile space_if_color_changed/0.
+
 last_color(default).
 
 normal_text(Text)    :- buf_add(normal, Text).

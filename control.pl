@@ -2258,7 +2258,7 @@ throw_combat(jesse, hiss_spawn) :-
     retractall(health(hiss_spawn, _)),
     assertz(health(hiss_spawn, NewHP)),
     assertz(object_thrown(object_of_power)),
-    enemy_turn_spawn(hiss_spawn, Room).
+    enemy_turn_spawn.
 
 throw_combat(jesse, hiss_guard) :-
     location(jesse, Room), location(hiss_guard, Room),
@@ -2272,7 +2272,7 @@ throw_combat(jesse, hiss_guard) :-
     retractall(health(hiss_guard, _)),
     assertz(health(hiss_guard, NewHP)),
     assertz(object_thrown(object_of_power)),
-    enemy_turn_guard(hiss_guard, Room).
+    enemy_turn_guard.
 
 throw_combat(jesse, hiss_guard_b) :-
     location(jesse, Room), location(hiss_guard_b, Room),
@@ -2286,7 +2286,7 @@ throw_combat(jesse, hiss_guard_b) :-
     retractall(health(hiss_guard_b, _)),
     assertz(health(hiss_guard_b, NewHP)),
     assertz(object_thrown(object_of_power)),
-    enemy_turn_guard_b(hiss_guard_b, Room).
+    enemy_turn_guard_b.
 
 throw_combat(jesse, hiss_brute) :-
     location(jesse, Room), location(hiss_brute, Room),
@@ -2300,7 +2300,7 @@ throw_combat(jesse, hiss_brute) :-
     retractall(health(hiss_brute, _)),
     assertz(health(hiss_brute, NewHP)),
     assertz(object_thrown(object_of_power)),
-    enemy_turn_brute(hiss_brute, Room).
+    enemy_turn_brute.
 
 throw_combat(jesse, hiss_boss) :-
     location(jesse, Room), location(hiss_boss, Room),
@@ -2314,7 +2314,7 @@ throw_combat(jesse, hiss_boss) :-
     retractall(health(hiss_boss, _)),
     assertz(health(hiss_boss, NewHP)),
     assertz(object_thrown(object_of_power)),
-    enemy_turn_boss(hiss_boss, Room).
+    enemy_turn_boss.
 
 throw_combat(jesse, Enemy) :-
     atom_concat(hiss_infection_, _, Enemy),
@@ -3372,23 +3372,30 @@ dispatch(Cmd) :-
 
 game_loop :-
     write("> "),
-    read_line_to_string(user_input, Line),
-    string_lower(Line, Lower),
-    split_string(Lower, " ", " \t", Words0),
-    maplist(clean_token_smart, Words0, Words),
-    maplist(atom_string, Tokens, Words),
-    ( game_over
-    -> ( parse(Tokens, restart) -> dispatch(restart), game_loop
-       ; parse(Tokens, quit)    -> dispatch(quit)
-       ; normal_text("You are dead. Type 'restart' to try again or 'quit' to exit."),
-         game_loop
-       )
-    ;  ( parse(Tokens, Command)
-       -> ignore(dispatch(Command)),
-          ( Command = quit -> true ; game_loop )
-       ;  writeln("I don't understand."),
-          game_loop
-       )
+    flush_output(user_output),
+    catch(
+        read_line_to_string(user_input, Line),
+        _,
+        (writeln("Input error."), game_loop)
+    ),
+    ( Line = "" -> game_loop
+    ; string_lower(Line, Lower),
+      split_string(Lower, " ", " \t", Words0),
+      maplist(clean_token_smart, Words0, Words),
+      maplist(atom_string, Tokens, Words),
+      ( game_over
+      -> ( parse(Tokens, restart) -> dispatch(restart), game_loop
+         ; parse(Tokens, quit)    -> dispatch(quit)
+         ; normal_text("You are dead. Type 'restart' to try again or 'quit' to exit."),
+           game_loop
+         )
+      ;  ( parse(Tokens, Command)
+         -> ignore(dispatch(Command)),
+            ( Command = quit -> true ; game_loop )
+         ;  writeln("I don't understand."),
+            game_loop
+         )
+      )
     ).
 
 /* ============================================
@@ -3456,7 +3463,11 @@ prologue :-
    ============================================ */
 
 start :-
+    % Ensure terminal is in canonical mode with proper echo settings
+    set_stream(user_input, alias(user_input)),
+    set_stream(user_input, encoding(utf8)),
     prologue,
+    flush_output,
     location(jesse, Room),
     show_map(Room),
     normal_text("You arrive at the Federal Bureau of Control."),
@@ -3470,6 +3481,7 @@ start :-
     list_thoughts(Room),
     list_occupants(Room),
     list_items(Room),
+    flush_output,
     game_loop.
 
 /* ============================================
