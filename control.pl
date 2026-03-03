@@ -2816,11 +2816,15 @@ show_map(Current) :-
     % Bold the center location name with brackets
     format(atom(Center), "[\e[1;36m~w\e[36m]", [CenterBase]),
 
-    % For arrow calculation, strip ANSI codes to get actual visual width
-    re_replace('\e\\[[0-9;]*m', '', Center, CenterStripped),
-    atom_length(CenterStripped, CL),
-    center_start(WBase, CStart),
-    ArrowCol is CStart + CL // 2,
+    % For arrow calculation, calculate center of the location name itself
+    atom_length(CenterBase, BaseLen),
+    ( WBase = ""
+    -> % No west label: location starts at position 2 ([>)
+       ArrowCol is 1 + (BaseLen // 2)
+    ;  atom_length(WBase, WL),
+       % With west label: location starts at WL + 5 + 2 = WL + 7
+       ArrowCol is WL + 6 + (BaseLen // 2)
+    ),
     spaces(ArrowCol, ArrowPad),
 
     map_text("═════════════════════════════════════════════════════════════"),
