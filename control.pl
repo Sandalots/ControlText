@@ -2762,8 +2762,10 @@ apply_take(service_weapon, Room) :-
     normal_text("You take the Service Weapon."),
     assertz(location(hiss_guard, upper_hall)),
     assertz(health(hiss_guard, 30)),
+    assertz(max_health(hiss_guard, 30)),
     assertz(location(hiss_spawn, lobby)),
     assertz(health(hiss_spawn, 20)),
+    assertz(max_health(hiss_spawn, 20)),
     assertz(weapon_just_taken),  % suppress infection check this turn
     highlight_text("A distant screech echoes through the building...").
 
