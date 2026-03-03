@@ -2796,14 +2796,21 @@ center_start(WLabel, Start) :-
 %% show_map(+Current)
 %  Render the full relative map for the current room.
 show_map(Current) :-
-    map_label_center(Current, Center),
-    ( neighbor(Current, north, N, NS) -> label_with_status(N, NS, NLabel) ; NLabel = "" ),
-    ( neighbor(Current, south, S, SS) -> label_with_status(S, SS, SLabel) ; SLabel = "" ),
-    ( neighbor(Current, east,  E, ES) -> label_with_status(E, ES, ELabel) ; ELabel = "" ),
-    ( neighbor(Current, west,  W, WS) -> label_with_status(W, WS, WLabel) ; WLabel = "" ),
+    map_label_center(Current, CenterBase),
+    ( neighbor(Current, north, N, NS) -> label_with_status(N, NS, NLabelBase) ; NLabelBase = "" ),
+    ( neighbor(Current, south, S, SS) -> label_with_status(S, SS, SLabelBase) ; SLabelBase = "" ),
+    ( neighbor(Current, east,  E, ES) -> label_with_status(E, ES, ELabelBase) ; ELabelBase = "" ),
+    ( neighbor(Current, west,  W, WS) -> label_with_status(W, WS, WLabelBase) ; WLabelBase = "" ),
 
-    atom_length(Center, CL),
-    center_start(WLabel, CStart),
+    % Make location names bold for visibility
+    ( NLabelBase = "" -> NLabel = "" ; format(atom(NLabel), "\e[1m~w\e[0m", [NLabelBase]) ),
+    ( SLabelBase = "" -> SLabel = "" ; format(atom(SLabel), "\e[1m~w\e[0m", [SLabelBase]) ),
+    ( ELabelBase = "" -> ELabel = "" ; format(atom(ELabel), "\e[1m~w\e[0m", [ELabelBase]) ),
+    ( WLabelBase = "" -> WLabel = "" ; format(atom(WLabel), "\e[1m~w\e[0m", [WLabelBase]) ),
+    format(atom(Center), "\e[1m~w\e[0m", [CenterBase]),
+
+    atom_length(CenterBase, CL),
+    center_start(WLabelBase, CStart),
     ArrowCol is CStart + CL // 2,
     spaces(ArrowCol, ArrowPad),
 
@@ -2811,7 +2818,7 @@ show_map(Current) :-
     map_text("Relative Map:"),
 
     ( NLabel \= ""
-    -> atom_length(NLabel, NL),
+    -> atom_length(NLabelBase, NL),
        NCol is max(0, ArrowCol - NL // 2),
        spaces(NCol, NPad),
        map_line("~w~w", [NPad, NLabel]),
@@ -2829,7 +2836,7 @@ show_map(Current) :-
     ),
 
     ( SLabel \= ""
-    -> atom_length(SLabel, SL),
+    -> atom_length(SLabelBase, SL),
        SCol is max(0, ArrowCol - SL // 2),
        spaces(SCol, SPad),
        map_line("~w|",  [ArrowPad]),
@@ -3247,6 +3254,11 @@ prologue :-
     writeln(""),
     writeln(""),
     normal_text("════════════════════════════════════════════════════════════"),
+    writeln(""),
+    normal_text("CONTROL TEXT ADVENTURE PROLOG ADAPTION BY SANDY MACDONALD 52534948"),
+    writeln(""),
+    normal_text("════════════════════════════════════════════════════════════"),
+    writeln(""),
     writeln(""),
     normal_text("You are Jesse Faden."),
     writeln(""),
