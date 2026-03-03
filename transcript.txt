@@ -1,3 +1,5 @@
+(if on server hosted web-page interface click start game to begin the game)
+
 think brother
 think unarmed
 go east
@@ -59,8 +61,8 @@ go east
 think finally
 talk dylan (game over)
 
+
 Optionally each room, you can read <note>, think <thought> or take <item> 
 and explore off the beaten path, however the transcript walks you through to beginning to end win goal, with only 1 optional puzzle completed.
 If you would like to lose then just use skip in combats until you are dead or go north from the demolition room into the death room.
-
 Plus some enemies can appear randomly through the use of the infection system, where rooms where no enemy currently exists has a chance to spawn enemies so the game is not fully deterministic and you will have to use combat, attack et cetera to deal with these randomly elements.
