@@ -162,9 +162,31 @@ last_color(default).
 normal_text(Text)    :- buf_add(normal, Text).
 highlight_text(Text) :- buf_add(highlight, Text).
 map_text(Text)       :- buf_add(map, Text).
+map_text_bold(Text)  :- buf_add('map-bold', Text).
 tip_text(Text)       :- buf_add(tip, Text).
 note_text(Text)      :- buf_add(note, Text).
 speak(_, Text)       :- buf_add(speak, Text). % NPC identity ignored; style is uniform
+
+%% map_line(+Fmt, +Args)  [override]
+%  Format and output location map lines, detecting bracketed names [name]
+%  and styling them as bold for better visibility on the web.
+map_line(Fmt, Args) :-
+    format(string(S), Fmt, Args),
+    map_line_with_bold(S).
+
+%% map_line_with_bold(+Text)
+%  Helper to detect [name] patterns (which may contain ANSI codes) and 
+%  output them with bold styling, regular parts with normal styling.
+map_line_with_bold(Text) :-
+    ( re_matchsub('(.*?)(\\[[^\\]]*\\])(.*)', Text, Sub, [])
+    -> Prefix = Sub.get('1'),
+       Location = Sub.get('2'),
+       Suffix = Sub.get('3'),
+       ( Prefix \= "" -> buf_add(map, Prefix) ; true ),
+       buf_add('map-bold', Location),
+       map_line_with_bold(Suffix)
+    ;  ( Text \= "" -> buf_add(map, Text) ; true )
+    ).
 
 % Map the legacy ANSI color_ln/2 API to the nearest web style.
 color_ln(red, Text)    :- buf_add(note, Text).

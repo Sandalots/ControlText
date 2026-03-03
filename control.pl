@@ -231,6 +231,10 @@ map_text(Text) :-
     retractall(last_color(_)),
     assert(last_color(cyan)).
 
+%% map_text_bold(+Text) — bold cyan: bold map location names (server override in server.pl)
+map_text_bold(Text) :-
+    ansi_format([fg(cyan), bold], '~w', [Text]).
+
 %% tip_text(+Text) — magenta bold: gameplay hints
 tip_text(Text) :-
     ( last_color(LastColor) -> true ; LastColor = default ),
@@ -2737,16 +2741,17 @@ use_shield :-
    ============================================ */
 
 %% map_label_center(+Room, -Label)
-%  Format the current room as [>room<].
+%  Format the current room as >room< (without brackets; brackets added in show_map).
 map_label_center(Room, Label) :-
-    format(atom(Label), "[>~w<]", [Room]).
+    format(atom(Label), ">~w<", [Room]).
 
 %% label_with_status(+Name, +Status, -Label)
-%  Append "(locked)" to label if Status = locked.
+%  Create a label like [name] or [name] (locked) with bold name for visibility.
+%  Uses bold cyan (\e[1;36m) to maintain color while adding bold.
 label_with_status(Name, locked, Label) :- !,
-    format(atom(Label), "[~w] (locked)", [Name]).
+    format(atom(Label), "[\e[1;36m~w\e[36m] (locked)", [Name]).
 label_with_status(Name, _, Label) :-
-    format(atom(Label), "[~w]", [Name]).
+    format(atom(Label), "[\e[1;36m~w\e[36m]", [Name]).
 
 %% dir_equiv(+Cardinal, ?ConnDir)
 %  Map canonical directions to their connection aliases.
@@ -2797,20 +2802,23 @@ center_start(WLabel, Start) :-
 %  Render the full relative map for the current room.
 show_map(Current) :-
     map_label_center(Current, CenterBase),
-    ( neighbor(Current, north, N, NS) -> label_with_status(N, NS, NLabelBase) ; NLabelBase = "" ),
-    ( neighbor(Current, south, S, SS) -> label_with_status(S, SS, SLabelBase) ; SLabelBase = "" ),
-    ( neighbor(Current, east,  E, ES) -> label_with_status(E, ES, ELabelBase) ; ELabelBase = "" ),
-    ( neighbor(Current, west,  W, WS) -> label_with_status(W, WS, WLabelBase) ; WLabelBase = "" ),
+    ( neighbor(Current, north, N, NS) -> label_with_status(N, NS, NLabel) ; NLabel = "" ),
+    ( neighbor(Current, south, S, SS) -> label_with_status(S, SS, SLabel) ; SLabel = "" ),
+    ( neighbor(Current, east,  E, ES) -> label_with_status(E, ES, ELabel) ; ELabel = "" ),
+    ( neighbor(Current, west,  W, WS) -> label_with_status(W, WS, WLabel) ; WLabel = "" ),
 
-    % Make location names bold for visibility
-    ( NLabelBase = "" -> NLabel = "" ; format(atom(NLabel), "\e[1m~w\e[0m", [NLabelBase]) ),
-    ( SLabelBase = "" -> SLabel = "" ; format(atom(SLabel), "\e[1m~w\e[0m", [SLabelBase]) ),
-    ( ELabelBase = "" -> ELabel = "" ; format(atom(ELabel), "\e[1m~w\e[0m", [ELabelBase]) ),
-    ( WLabelBase = "" -> WLabel = "" ; format(atom(WLabel), "\e[1m~w\e[0m", [WLabelBase]) ),
-    format(atom(Center), "\e[1m~w\e[0m", [CenterBase]),
+    % For length calculations, strip ANSI codes from formatted labels to get base lengths
+    ( NLabel = "" -> NBase = "" ; re_replace('\e\\[[0-9;]*m', '', NLabel, NBase) ),
+    ( SLabel = "" -> SBase = "" ; re_replace('\e\\[[0-9;]*m', '', SLabel, SBase) ),
+    ( WLabel = "" -> WBase = "" ; re_replace('\e\\[[0-9;]*m', '', WLabel, WBase) ),
 
-    atom_length(CenterBase, CL),
-    center_start(WLabelBase, CStart),
+    % Bold the center location name with brackets
+    format(atom(Center), "[\e[1;36m~w\e[36m]", [CenterBase]),
+
+    % For arrow calculation, strip ANSI codes to get actual visual width
+    re_replace('\e\\[[0-9;]*m', '', Center, CenterStripped),
+    atom_length(CenterStripped, CL),
+    center_start(WBase, CStart),
     ArrowCol is CStart + CL // 2,
     spaces(ArrowCol, ArrowPad),
 
@@ -2818,7 +2826,7 @@ show_map(Current) :-
     map_text("Relative Map:"),
 
     ( NLabel \= ""
-    -> atom_length(NLabelBase, NL),
+    -> atom_length(NBase, NL),
        NCol is max(0, ArrowCol - NL // 2),
        spaces(NCol, NPad),
        map_line("~w~w", [NPad, NLabel]),
@@ -2836,7 +2844,7 @@ show_map(Current) :-
     ),
 
     ( SLabel \= ""
-    -> atom_length(SLabelBase, SL),
+    -> atom_length(SBase, SL),
        SCol is max(0, ArrowCol - SL // 2),
        spaces(SCol, SPad),
        map_line("~w|",  [ArrowPad]),
