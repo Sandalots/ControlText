@@ -167,6 +167,7 @@ tip_text(Text)       :- buf_add(tip, Text).
 note_text(Text)      :- buf_add(note, Text).
 speak(_, Text)       :- buf_add(speak, Text). % NPC identity ignored; style is uniform
 
+:- multifile map_line/2.
 %% map_line(+Fmt, +Args)  [override]
 %  Format and output location map lines.
 map_line(Fmt, Args) :-
@@ -224,6 +225,8 @@ writeln(Text) :-
       are skipped here and the server versions
       above are used instead for all output.
    ============================================ */
+
+:- multifile map_line/2.
 :- [control].
 
 /* ============================================

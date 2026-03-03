@@ -2785,6 +2785,7 @@ spaces(N, S) :-
     maplist(=(0' ), Cs),
     atom_chars(S, Cs).
 
+:- multifile map_line/2.
 %% map_line(+Fmt, +Args)
 %  Format and print a single map line in cyan.
 map_line(Fmt, Args) :-
