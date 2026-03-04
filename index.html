@@ -1,43 +1,13 @@
 <!DOCTYPE html>
-<!--
-  Control — Text Adventure  ·  Browser UI
-  index.html
 
-  This is the entire front-end for the game.
-  It communicates with the SWI-Prolog HTTP server
-  (server.pl) running on localhost:8081.
-
-  Flow:
-    1. Page loads → startGame() calls POST /start
-       which resets the game and returns the opening
-       scene as a JSON array of styled text lines.
-    2. Player types a command and presses Enter or
-       Send → sendCommand() calls POST /command with
-       { input: "…" } and appends the response lines.
-    3. Each JSON line is { text: "…", style: "…" }
-       where style maps to a CSS class below.
-
-  Style → CSS class mapping:
-    normal    → green text       (narrative prose)
-    highlight → yellow text      (combat, status)
-    map       → cyan text        (room map, headers)
-    tip       → magenta bold     (gameplay hints)
-    speak     → red italic       (NPC dialogue)
-    note      → red italic       (readable notes)
-    error     → red italic       (parse errors)
-    spacer    → empty block      (blank-line gap)
-    echo      → white            (player's own input)
--->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Control — Text Adventure</title>
+  <title>Control — Text Adventure Prolog Game Web Interface</title>
   <style>
-    /* ── Reset & base layout ───────────────────────
-       Full-viewport flex column: #output scrolls,
-       #input-row is pinned to the bottom.          */
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       background: #0a0a0a;
       color: #39ff14;
@@ -49,47 +19,34 @@
       padding: 12px;
     }
 
-    /* ── Output area ───────────────────────────────
-       Takes all remaining vertical space and scrolls
-       independently of the input row.               */
     #output {
       flex: 1;
       overflow-y: auto;
       padding-bottom: 8px;
     }
 
-    /* ── Base line style ───────────────────────────
-       white-space:pre preserves the ASCII map art.
-       min-height ensures blank lines still take up
-       vertical space even when textContent is empty. */
     .line {
       white-space: pre;
       line-height: 1.6;
       min-height: 1.6em;
     }
 
-    /* ── Per-style colours ─────────────────────────
-       These class names are sent by the server in
-       the `style` field of each JSON line object.   */
-    .normal    { color: #39ff14; }           /* narrative prose — neon green    */
-    .highlight { color: #ffd700; }           /* status / combat — gold          */
+    .normal    { color: #39ff14; }
+    .highlight { color: #ffd700; }
     .map       { color: #00e5ff; font-family: 'Courier New', Courier, monospace; }
-                                             /* map / headers — cyan            */
     .map-bold  { color: #00e5ff; font-family: 'Courier New', Courier, monospace; font-weight: bold; }
-                                             /* map text, bold — cyan bold      */
-    .tip       { color: #ff66ff; font-weight: bold; } /* hints — magenta bold  */
-    .speak     { color: #ff4444; font-style: italic; } /* NPC dialogue — red   */
-    .error     { color: #ff4444; font-style: italic; } /* parse errors — red   */
-    .echo      { color: #ffffff; }           /* player's own input — white      */
-    .spacer    { display: block; height: 0.5em; } /* blank-line gap between blocks */
+    .tip       { color: #ff66ff; font-weight: bold; }
+    .speak     { color: #ff4444; font-style: italic; }
+    .error     { color: #ff4444; font-style: italic; }
+    .echo      { color: #ffffff; }
+    .spacer    { display: block; height: 0.5em; }
     
-    /* ── Button style ──────────────────────────────
-       Interactive button rendered in the output area. */
     .button-line {
       display: flex;
       justify-content: flex-start;
       padding: 12px 0;
     }
+
     .button-line button {
       background: #111;
       border: 2px solid #ffd700;
@@ -100,11 +57,9 @@
       cursor: pointer;
       font-weight: bold;
     }
+
     .button-line button:hover { background: #1a1a1a; border-color: #ffff00; color: #ffff00; }
 
-    /* ── Input row ─────────────────────────────────
-       Flex row at the bottom: prompt label, text
-       input (fills remaining space), Send button.   */
     #input-row {
       display: flex;
       gap: 8px;
@@ -112,7 +67,9 @@
       border-top: 1px solid #333;
       margin-top: 4px;
     }
+
     #prompt { color: #39ff14; padding-top: 4px; user-select: none; }
+    
     #cmd {
       flex: 1;
       background: transparent;
@@ -124,6 +81,7 @@
       outline: none;
       padding: 2px 4px;
     }
+
     #send-btn {
       background: #111;
       border: 1px solid #39ff14;
@@ -133,13 +91,11 @@
       padding: 2px 12px;
       cursor: pointer;
     }
+
     #send-btn:hover { background: #1a1a1a; }
 
-    /* ── Note colour alias ─────────────────────────
-       .note uses the same appearance as .speak but
-       is kept separate so the server can distinguish
-       readable notes from NPC dialogue semantically. */
     .note   { color: #ff4444; font-style: italic; }
+    
   </style>
 </head>
 <body>
@@ -155,48 +111,25 @@
     const cmd    = document.getElementById('cmd');
     const btn    = document.getElementById('send-btn');
 
-    /**
-     * stripAnsi(str)
-     * Remove any ANSI escape sequences (e.g. \x1b[32m) that may
-     * have leaked through from the Prolog side.  The server's web
-     * output predicates shouldn't produce them, but this is a
-     * safety net in case game code calls a low-level format/2
-     * with colour codes directly.
-     */
     function stripAnsi(str) {
       return str.replace(/\x1b\[[0-9;]*m/g, '');
     }
 
-    /**
-     * appendLines(lines)
-     * Render an array of { text, style } objects from the server
-     * into the #output div.
-     *
-     * Rules:
-     *  • Spacer entries (style === 'spacer') create an empty div
-     *    styled with `height: 0.5em` for visual breathing room.
-     *  • Non-spacer entries with empty text are skipped entirely
-     *    (they would just be invisible blank lines).
-     *  • Each line's CSS class is `line <style>`, which gives the
-     *    correct colour defined in the <style> block above.
-     *  • After appending, the output area is scrolled to the bottom
-     *    so the latest output is always visible.
-     */
     function appendLines(lines) {
       lines.forEach(l => {
         const text = stripAnsi(l.text || '');
-        // skip bare empty-string lines that are not explicit spacers
+
         if (l.style !== 'spacer' && text === '') return;
         const div = document.createElement('div');
         const style = l.style || 'normal';
         
-        // Special handling for button style
         if (style === 'button') {
           div.className = 'button-line';
           const button = document.createElement('button');
           button.textContent = text;
           button.addEventListener('click', buttonContinue);
           div.appendChild(button);
+
         } else {
           div.className = 'line ' + style;
           if (style !== 'spacer') {
@@ -208,12 +141,6 @@
       output.scrollTop = output.scrollHeight;
     }
 
-    /**
-     * echoInput(text)
-     * Show the player's own command in white before the server
-     * response, so the conversation history is readable.
-     * Mimics the "> command" convention of classic text adventures.
-     */
     function echoInput(text) {
       const div = document.createElement('div');
       div.className = 'line echo';
@@ -221,16 +148,6 @@
       output.appendChild(div);
     }
 
-    /**
-     * sendCommand(input)
-     * Handle a player command:
-     *   1. Ignore blank input.
-     *   2. Echo the command in the output area.
-     *   3. Clear the text field immediately for the next input.
-     *   4. POST the command to /command as JSON.
-     *   5. Append the server's response lines.
-     *   6. On network error, show a connection error message.
-     */
     async function sendCommand(input) {
       if (!input.trim()) return;
       echoInput(input);
@@ -248,13 +165,6 @@
       }
     }
 
-    /**
-     * buttonContinue()
-     * Triggered by the prologue "Continue" button.
-     * Sends an empty command to the server without echoing it,
-     * allowing prologue_shown to be set and game state to display.
-     * Clears the prologue text from the output first.
-     */
     async function buttonContinue() {
       output.innerHTML = '';
       try {
@@ -270,12 +180,6 @@
       }
     }
 
-    /**
-     * startGame()
-     * Called once on page load.  POSTs to /start which resets the
-     * Prolog game state and returns the opening scene lines.
-     * On failure (server not running etc.) shows an error message.
-     */
     async function startGame() {
       try {
         const res = await fetch('/start', { method: 'POST' });
@@ -286,13 +190,11 @@
       }
     }
 
-    // Send on button click or Enter key in the text field.
     btn.addEventListener('click', () => sendCommand(cmd.value));
     cmd.addEventListener('keydown', e => {
       if (e.key === 'Enter') sendCommand(cmd.value);
     });
 
-    // Kick off the game immediately when the page finishes loading.
     startGame();
   </script>
 </body>
