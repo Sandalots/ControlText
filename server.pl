@@ -392,24 +392,12 @@ handle_command(Request) :-
     buf_flush(Lines),
     reply_json_dict(_{lines: Lines, ok: true}).
 
-%% init_game_output/0
-%  Legacy: render opening scene (used for backward compatibility).
-%  For web server: kept for use when restart command is called
-%  without needing prologue_shown flag handling.
+% render prologue text 
 init_game_output :-
     show_prologue_only,
     show_game_state.
 
-%% reset_game/0
-%  Full game reset for the web server context.
-%  Differs from the standalone restart_game/0 in that
-%  it also clears the server-specific dynamic state
-%  (last_color, last_buf_style) and re-seeds them to
-%  their initial values before delegating to
-%  restart_game/0 (defined in control.pl), which
-%  re-asserts all entity locations, health, and items.
-%  Called by handle_start/1 and by handle_command/1
-%  when the player issues a 'restart' command.
+% restores all dynamic predicates to their initial state to reset the game on the server.
 reset_game :-
     retractall(location(_, _)),
     retractall(health(_, _)),
@@ -425,31 +413,13 @@ reset_game :-
     retractall(cat_statue_placed),
     retractall(weapon_just_taken),
     retractall(shield_active),
-    retractall(last_color(_)),         % server-side colour tracker stub
-    retractall(last_buf_style(_)),     % output buffer style tracker
+    retractall(last_color(_)),
+    retractall(last_buf_style(_)),
     assertz(last_color(default)),
     assertz(last_buf_style(none)),
-    restart_game.                      % re-asserts all game facts (control.pl)
+    restart_game.
 
-/* ============================================
-      ENTRY POINT
-      initialization/2 with goal `main` fires
-      when the file is loaded with:
-        swipl server.pl
-      Steps:
-        1. reset_game   — ensure a clean slate.
-        2. http_server  — start the HTTP listener
-                          on port 8081 using the
-                          http_dispatch/1 router,
-                          which reads the route
-                          directives declared above.
-        3. thread_get_message(stop) — park the main
-                          thread indefinitely so the
-                          server keeps running.
-                          Send the atom `stop` to
-                          this thread to shut down
-                          gracefully.
-   ============================================ */
+% server entry point, I'm hosting on port 8081 as the default port I was having problems with, also tell the end user a clickable link in the terminal to easily navigate to the web served game proper.
 :- initialization(
     ( reset_game,
       http_server(http_dispatch, [port(8081)]),
