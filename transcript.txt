@@ -10,9 +10,15 @@ inventory
 go west
 quest
 read welcome
+read construction
+think unarmed
+think here
 go north
 take keys
 think weapon
+think clock
+look
+unlock locked_suitcase 1200
 go west
 take smash
 map
