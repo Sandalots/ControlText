@@ -405,7 +405,6 @@ announce_enemies(Room) :-
       Additional items can be asserted at
       runtime (e.g. dylans_cell_key after boss).
    ============================================ */
-
 :- assertz(object(keys,           lobby)).
 :- assertz(object(service_weapon, directors_office)).
 :- assertz(object(health_kit,     anteroom)).
@@ -440,13 +439,8 @@ announce_enemies(Room) :-
 :- assertz(object(charge_upgrade, evidence_vault)).
 :- assertz(location(hartwell,     demolition_room)).
 
-/* ============================================
-      MAP — connected(From, To, Direction)
-      Unconditional facts use plain clauses.
-      Conditional connections (locked behind
-      items) use rule bodies.
-   ============================================ */
 
+% connecting each room to its adjacent rooms.
 /* --- Street / entrance --- */
 connected(street,      lobby,       enter).
 connected(street,      lobby,       north).
@@ -615,12 +609,7 @@ room_name(evidence_vault,   'Evidence Vault').
 room_name(death_room,       'The Death Room').
 room_name(Room,              Room).  % fallback for rooms without a name defined
 
-/* ============================================
-      NOTES — note(Room, Id, Text)
-      Static lore and environmental storytelling.
-      Players use 'read <Id>' to read them.
-   ============================================ */
-
+% static lore dumps, a note has a room location, a identifier so players can select it to read, and the textual story contents of reading such a note folliwng, players use read <Id> to read them.
 note(street, welcome, "A faded government memo: 'The Bureau never sleeps. Neither should you.'").
 note(street, construction, "Public Notice: There will be noisy construction in this area for some time.\nWe thank you for your cooperation and patience during these improvements.").
 note(west_road, old_sign, "A weathered street sign, half-obscured by vines: 'Dimensional Research Wing - 2 miles.'").
@@ -745,12 +734,7 @@ read_notes(Name) :-
     ;  note_text("No such note here.")
     ).
 
-/* ============================================
-      INNER THOUGHTS — inner_thought(Room, Id, Text)
-      Jesse's internal monologue; triggered with
-      'think <Id>' when in the matching room.
-   ============================================ */
-
+% inner thoughts are optional story narrative flavour, which are located in a room, has a id for players to think about them, and players use think <Id> to trigger them, and they are not marked as read or unread, they can be thought about multiple times if players want to revisit the story flavour.
 inner_thought(street, brother, "Dylan. You haven't seen him in years — not since the night everything fell apart. He disappeared without a word, and you told yourself you didn't care. You told yourself that for a long time. Then the dreams started. His voice. This building. Something in here took him, or called him, or changed him. You don't know which is worse. You just know you're not leaving without him.").
 inner_thought(street, here, "The Federal Bureau of Control. You used to think it was a myth — a government agency that didn't officially exist, dealing with things that officially couldn't happen. Now you're standing in front of it. It's taller than it should be. The geometry is wrong in ways you can't name. And somehow, it feels like it already knows you're here.").
 inner_thought(street, unarmed, "You're walking into a government building that doesn't officially exist, dealing with things that officially can't happen — and you're unarmed. Smart, Jesse. Real smart. Whatever is in there, it's not going to care that you came in peace. You need a weapon. Something that can handle whatever this place throws at you. There has to be something inside. Find it. Before it finds you first.").
