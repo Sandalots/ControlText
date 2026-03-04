@@ -1,9 +1,0 @@
-use swipl control.pl for the cli interface for my control game.
-or use swipl server.pl for the server hosted version, where the link to the webpage is given in the cli when running the server.pl. 
-
-the transcript provides the route and items required and a complete picture to reach the goal state of finding the protagonists brother however as the game contains randomised enemy spawns you may have to defeat enemies using attack where the transcript does not.
-
-index.html contains the html code for styling the parsed text generated from the prolog logic and also strips newline and other undesired characters in the html buffer.
-playing the game, the game provides helpful tips and tells the user to use the help command if they are not sure of the valid actions they can take in the game.
-
-The transcript ensures the main gameplay route however there is optional puzzles and exploration that the transcript does not fully include and therefore you can take alternative routes if you so wish.
