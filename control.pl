@@ -543,86 +543,43 @@ connected(secret_chamber, lab77,          north) :- has(jesse, smash).
 connected(resonance_lab, sub_lab,        west) :- has(jesse, smash).
 connected(sub_lab,       resonance_lab,  east) :- has(jesse, smash).
 
-/* ============================================
-      ROOM DESCRIPTIONS
-      Displayed on entry and with 'look'.
-   ============================================ */
-
+% When a player enters a room or uses look, this is the description of the given room.
 description(street, "You stand outside the Federal Bureau of Control. The building is tall, featureless, and humming faintly. The front doors wait silently.").
-
 description(food_vendor, "A greasy hot-dog cart stands here. A man in a stained apron shouts, 'Best dogs in the Oldest House!'").
-
 description(north_alley, "A narrow service alley running behind the Oldest House. The building's back wall looms overhead — raw concrete, no windows, stained grey by decades of city weather. A metal service door stands shut at the far end. Cigarette butts cluster near a ventilation grate: evidence of every smoke break taken by Bureau staff who needed a moment outside and couldn't go far.").
-
 description(east_plaza, "A wide concrete apron stretching east of the hot-dog cart. There are benches — Bureau-standard, uncomfortable by design. A flagpole at the far edge still flies a Bureau pennant, intact, calmly snapping in the wind as if nothing has happened. Something about that is worse than if it had come down.").
-
 description(south_lot, "Staff parking. Bureau-issue signage: PERMIT HOLDERS ONLY. The lot is almost full — maybe thirty cars sitting in orderly rows, each left as if its owner planned to come back after lunch. A glass security booth at the entrance stands empty, a half-drunk coffee visible on the counter inside. Nobody came back after lunch.").
-
 description(west_road, "A quiet side street veering north. The air smells like dust and old paper. There's not much here.").
-
 description(lobby, "A vast lobby with humming lights. A janitor's cart sits alone.").
-
 description(janitor_hall, "A narrow hallway. Ahti leans on his mop, watching you.").
-
 description(utility_bay, "A cramped maintenance bay south of the hallway. Shelves of cleaning supplies line the walls — mop heads, bleach drums, labelled bins. A Bureau-issue safety notice board hangs lopsided above a folding table. Sitting at the table, eating a sandwich and reading a form in triplicate, is a man in a Bureau lanyard. He looks up at you with the calm expression of someone who has decided that if he just keeps filling in forms, everything will eventually resolve itself.").
-
 description(toilets, "A dimly lit bathroom. The smell of industrial cleaner hangs in the air. A first aid kit sits on the counter, weathered and faded.").
-
 description(pipe_room, "A utility void above the bathroom ceiling, barely tall enough to stand in. Branching pipes run the length of the room, lagged with crumbling insulation. The smash object opened a section of false wall to get you in here — the hole it left is ragged and clean, like a bite through cardboard. Something was stored here deliberately, shoved behind a pipe and wrapped in a Bureau evidence bag: a compact resonance capacitor, still charged.").
-
 description(atrium, "A vast circular chamber with high vaulted ceilings. Strange geometric patterns cover the floor, seeming to shift and breathe with an otherworldly rhythm. The air feels heavy with presence.").
-
 description(rejuvenation_room, "A low, quiet room off the north side of the atrium. The walls are tiled in pale green ceramic, the grout still clean. Recessed lighting hums at a frequency that feels deliberately calibrated — not quite warm, not quite clinical, but something in between. A row of reclining examination chairs faces a bank of monitoring equipment, most of it still active. Drip lines hang from chrome stands, untouched. The room smells faintly of something medicinal and something older than medicine. You feel marginally better just standing in it.").
-
 description(resonance_lab, "A disused research lab buried behind the atrium. The walls are lined with blackboards covered in resonance equations, half-erased and restless. In the centre of the room, on a scorched examination table, sits a shifting mass of paranatural energy barely contained in the form of a weapon. The air hums with potential violence.").
-
 description(sub_lab, "A cramped auxiliary lab, sealed off from the resonance chamber by a reinforced wall — something punched a hole through it from the other side at some point. The breach is still there, jagged and cold. Inside: overturned equipment, a shattered monitor, and on a high shelf, a Bureau-issue resonance capacitor, still charged. Somehow the whole room just missed the worst of whatever happened here.").
-
 description(containment_hall, "A long reinforced corridor. Containment cells line both walls, most of them hanging open and dark. The air smells of ozone and fear. A Hiss-infected guard patrols the far end, twitching erratically.").
-
 description(cell_annex, "A processing annex off the north side of the containment hall. This is where inmates were booked, documented, and assigned cells. A long counter runs the length of one wall, clipboards still hanging above it, each labelled with a cell number. The cell numbers go higher than the hall has cells. A locked filing cabinet has been forced open, its contents spread across the floor. Someone was looking for a specific name. From the mess, it looks like they found it.").
-
 description(watch_post, "A raised observation room that looks back down into the containment hall through scratched reinforced glass. Banks of monitors show static on most channels and nothing on the rest. One screen still has a live feed from a camera in solitary: a fixed angle, a corridor, a shape at the far end that hasn't moved in however long this tape has been running. A chair has been bolted to the floor facing the monitors. Somebody had to watch that screen every shift. You think about what that job was like.").
-
 description(solitary, "A cavernous solitary confinement block. The cells here are reinforced with paranatural dampeners — thick runes etched into every surface. Most of the doors have been torn clean off their hinges from the inside. At the far end of the block, something massive stands perfectly still, facing the wall. It turns slowly as you enter. The Hiss Warden. It was left here to guard something. Or someone.").
-
 description(dylans_cell, "A small reinforced cell, stripped bare. A single cot. A single light. Dylan sits on the edge of the cot, head in his hands. He looks up when you enter. His eyes are red-rimmed, exhausted — but they're his eyes. Not the Hiss. Not whatever you were afraid you'd find. Just your brother. He stares at you for a long moment. Then he says your name.").
-
 description(upper_hall, "A long corridor leading deeper into the Bureau. The air hums with a faint paranatural resonance. Doors line the walls, some hanging open, others sealed tight.").
-
 description(security_post, "A small security post. Monitors flicker with static. An overturned chair suggests someone left in a hurry. A first aid kit sits on the desk.").
-
 description(records_room, "A dusty records room. Filing cabinets line the walls, many hanging open and emptied. The smell of old paper fills the air. A first aid kit sits on a shelf, untouched.").
-
 description(directors_office, "A quiet office bathed in pale light. The Director slumps behind the desk, a single bullet wound to the temple. In his outstretched hand — the Service Weapon. It hums faintly, as if waiting. Whatever drove him to this end, the weapon chose to stay. Pick it up. You'll need it.").
-
 description(anteroom, "A small private waiting room adjoining the Director's office. Two leather chairs face each other across a low table, undisturbed. A glass of water on the table is still full. Whoever poured it never came back in. Hanging on the wall: a framed Bureau charter, a commendation plaque, and a photograph of a team of people none of whom appear to have faces.").
-
 description(ops_room, "The Director's operational command post. Unlike the main office, this room was clearly used right up until the end — papers everywhere, monitors still running, an open radio crackling with static. A tactical map of the Oldest House covers one wall, annotated in red. Some of the annotations don't match any room you've been in yet.").
-
 description(lab77_locked, "A sealed laboratory door marked 'LAB 77' blocks your path. It's locked tight.").
-
 description(lab77, "Inside Lab 77. Equipment hums softly on the walls. A smash object sits on a bench.").
-
 description(archive_bay, "A long storage bay running west behind Lab 77. Metal shelving units line the walls, loaded with sealed specimen crates and bound Bureau document files — most of them labelled in a shorthand that no longer means anything. The lights still flicker on. A first aid kit sits near the door, untouched.").
-
 description(secret_chamber, "A hidden chamber behind a crumbled wall. Strange equipment covers the shelves. Your brother sits slumped in a chair, eyes closed.").
-
 description(demolition_room, "A ruined chamber, walls blasted inward as if by some enormous force. Debris litters the floor. In the centre, hovering inches above a scorched pedestal, a translucent hexagonal shield pulses with a pale blue light. An Object of Power. It knows you're here.").
-
 description(blast_corridor, "A service corridor running west from the demolition site. The blast damage is worse here — the walls buckled inward, the ceiling cracked open, and the floor is carpeted with powdered concrete and shattered glass. Something large came through here in a hurry. Or something large was pushed.").
-
 description(evidence_vault, "A sealed archive room off the east side of the demolition chamber. Heavy blast doors have warped in their frame but held — the room inside is roughly intact. Metal shelving holds rows of sealed Bureau evidence canisters, each labelled with a case number. A single workbench in the centre holds an open canister and a half-written report. Whoever was working here left without finishing the sentence.").
-
 description(death_room, "The air tears open. A wall of pure resonant noise hits you like a physical blow. The Hiss is not here — the Hiss IS here, everywhere, in every atom of the room. You had one second to reconsider. You didn't take it.").
 
-/* ============================================
-      ROOM NAMES
-      Display names used in the map and messages.
-      The final clause is a fallback that returns
-      the room atom unchanged.
-   ============================================ */
-
+% Given rooms specific names, for players to be able to select rooms to navigate to specifically.
 room_name(street,           'The Street').
 room_name(lobby,            'The Lobby').
 room_name(atrium,              'The Atrium').
@@ -656,7 +613,7 @@ room_name(demolition_room,  'Demolition Room').
 room_name(blast_corridor,   'Blast Corridor').
 room_name(evidence_vault,   'Evidence Vault').
 room_name(death_room,       'The Death Room').
-room_name(Room,              Room).  % fallback — return atom as-is
+room_name(Room,              Room).  % fallback for rooms without a name defined
 
 /* ============================================
       NOTES — note(Room, Id, Text)
@@ -2922,16 +2879,7 @@ restart_game :-
     assertz(object(health_kit,     blast_corridor)),
     assertz(object(charge_upgrade, evidence_vault)).
 
-/* ============================================
-      ENTRY POINT
-      Only active in standalone mode — server.pl
-      overrides the output predicates before
-      loading this file, so the guard prevents
-      the initialization directive from firing
-      when running under the web server.
-   ============================================ */
-
+% entry point, check if running in server mode or cli, call the start predicate if in cli mode
 :- if(\+ current_module(server)).
 :- initialization(start, main).
 :- endif.
-
