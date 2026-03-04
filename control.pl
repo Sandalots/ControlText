@@ -623,116 +623,83 @@ room_name(Room,              Room).  % fallback for rooms without a name defined
 
 note(street, welcome, "A faded government memo: 'The Bureau never sleeps. Neither should you.'").
 note(street, construction, "Public Notice: There will be noisy construction in this area for some time.\nWe thank you for your cooperation and patience during these improvements.").
-
 note(west_road, old_sign, "A weathered street sign, half-obscured by vines: 'Dimensional Research Wing - 2 miles.'").
 note(west_road, graffiti, "Cryptic graffiti scratched into a brick wall: 'The House changes. Don't let it change you.'").
 note(west_road, lost_time, "A discarded pocket watch lies in the dirt. The hands spin wildly, unable to settle on a time.").
-
 note(lobby, janitor, "Scrawled on the janitor's cart: 'Keys open doors; doors open minds.'").
 note(lobby, security_bulletin, "Security Bulletin: If you witness levitation, remain calm and alert a supervisor.\nDo not engage unless properly trained.").
 note(lobby, visitor_policy, "Visitor Policy: Unscheduled guests must wait in the lobby for escort.\nPlease keep your ID visible at all times.").
 note(lobby, missing_file, "Typed memo with coffee rings: 'Case file 11-07 has gone missing again.\nIf found humming, do not open it.'").
 note(lobby, overtime_notice, "Notice to Staff: Overtime this week is mandatory.\nThe House has been shifting after hours.").
-
 note(lobby, wall_clock, "An old Bureau wall clock hangs above the security desk.\nIts hands are perfectly positioned: 12 o'clock high.\nThe time feels significant. The clock hasn't moved.").
-
 note(food_vendor, menu, "A grease-stained menu board reads: 'TODAY'S SPECIAL: Bureau Burger - Code: BUREAU47'").
-
 note(north_alley, back_graffiti, "Spray-painted on the service door in confident capitals: 'BUREAU EATS PIGEONS.'\nBelow it, in much smaller and more careful letters, someone has written:\n'This is defamatory. The Bureau has never eaten any pigeons.\n— Internal Affairs, Informal Capacity.'\nBelow that, in the original hand: 'PROVE IT.'").
 note(north_alley, smoke_break_note, "On the back of a Bureau memo, written in the cramped script of someone who had about four minutes and a cigarette:\n'Day 47. Still can't get the filing system to register objects with no fixed form.\nIT says it's a data entry issue. IT has clearly never tried to file something\nthat is also filing you back. Went for a smoke. Better out here.\nSmell of outside is good. — B.'").
 note(north_alley, service_door_notice, "A laminated Bureau notice riveted to the service door:\n'ALL DELIVERIES: Sign in at front desk. Do not leave items unattended.\nDo not make eye contact with any item that appears to be watching you.\nReport anomalous deliveries to your supervisor immediately.\nIf your supervisor is the anomalous delivery, refer to Pamphlet 12.'\nPamphlet 12 is not attached.").
-
 note(east_plaza, bureau_flag, "The Bureau pennant on the flagpole is regulation-issue:\ndark grey, a stylised pyramid, no text.\nIt's been up there for years — you can tell by the precise fading at the edges.\nWhoever runs the building maintenance had it replaced on a schedule.\nRight now, on schedule or not, it's still there.\nThe Bureau, at least on a flag, still stands.").
 note(east_plaza, abandoned_placard, "A hand-lettered protest sign lying face-up on one of the benches:\n'WE DEMAND TRANSPARENCY — WHAT IS INSIDE THE OLDEST HOUSE??'\nThe cardboard is slightly damp. It wasn't here long before whoever carried it\nhad to put it down and leave in a hurry.\nYou consider the question. You are inside the Oldest House.\nYou do not feel particularly transparent.").
-
 note(south_lot, parking_permit, "A Bureau parking permit left on the dash of a grey sedan:\n'VALID: FY26. HOLDER: TRENCH, Z. CLEARANCE: LEVEL 4.'\nThe permit has been renewed every year for at least a decade.\nThe same car, same space, same permit. Ten years of Tuesday mornings.\nDirector Trench parked here this morning and walked into the building\nand did not walk out again.").
 note(south_lot, security_rota, "The staff rota pinned inside the security booth,\nvisible through the glass: eight names, three shifts,\nall crossed through with a single diagonal red line\nand the word SUSPENDED stamped in bureaucratic red.\nAt the bottom, in handwriting: 'No point. Nobody's leaving. — Gate'").
-
 note(janitor_hall, ahti_notice, "A notice pinned above Ahti's cart in careful block letters:\n'MON: Mop level 2. TUE: Mop level 2. WED: Mop level 2.\nEvery day the same. Routine is how we survive here. —A'").
-
 note(utility_bay, safety_board, "The Bureau safety notice board. Most of it is standard:\n'REPORT ALL PARANATURAL INCIDENTS TO YOUR LINE MANAGER.'\n'OBJECTS OF INTEREST: DO NOT TOUCH UNLESS CLEARED.'\n'HISS EXPOSURE: SEE PAMPHLET 7C.'\nPamphlet 7C is not attached. Someone wrote in biro: 'ASK DRENCHTOV.'\nDrenchtov has apparently written back: 'DON'T ASK DRENCHTOV.'").
 note(utility_bay, supply_request, "A Bureau supply requisition form in triplicate, mostly filled in:\n'Item requested: (1) mop head, standard. (1) bleach, industrial.\n(1) personnel extraction — high priority.'\nThe last line has been crossed out and rewritten four times.\nAbove it, in neat capitals:\n'I AM AWARE THIS IS NOT A STANDARD SUPPLY REQUEST. PLEASE ADVISE. —Drenchtov'").
 note(utility_bay, evacuation_memo, "A Bureau all-staff memo, rubber-stamped CONFIDENTIAL:\n'BUILDING EVACUATION: All non-essential personnel are advised to proceed\nto the designated rally point at their earliest convenience.'\nScrawled across the bottom: 'Conveniently, I cannot locate the rally point.\nConveniently, I cannot locate any personnel.\nConveniently, I have a sandwich. I will wait here. —D'").
-
 note(toilets, mirror_message, "Written in soap across the bathroom mirror, large unsteady letters:\n'THEY ARE IN THE WALLS. IF YOU CAN READ THIS YOU ARE STILL YOU. STAY THAT WAY.'").
-
 note(pipe_room, stashed_memo, "Tucked inside the evidence bag with the capacitor, a folded Bureau memo:\n'If you're reading this, you found the gap in the wall. Good.\nThat means you have the object and you know what you're doing.\nThe capacitor in here adds to your weapon's maximum charge.\nI hid it because I didn't want certain colleagues knowing how far\nthe resonance experiments had progressed.\nIf I'm not around to explain: it was further than they thought. — Dr. V'").
-
 note(atrium, cat_plinth, "A circular stone plinth sits at the centre of the atrium floor.\nAn inscription reads: 'The Watcher returns the way.'\nA shallow recess on top looks like something should rest there.").
-
 note(rejuvenation_room, protocol_board, "A laminated Bureau protocol sheet mounted beside the entrance:\n'REJUVENATION SUITE — AUTHORISED PERSONNEL ONLY.\nResidential resonance frequency: 7.83 Hz (calibrated).\nBiological enhancement window: 20–40 minutes per session.\nNote: extended exposure above 90 minutes has produced anomalous results in\nthree (3) subjects. Report any involuntary structural changes to your supervisor.'\nAt the bottom: 'What does involuntary structural changes mean? — L.'\nAbove: 'It means don't stay too long. — anonymous'").
 note(rejuvenation_room, research_summary, "A bound research summary left open on the monitoring desk:\n'Project BLOOM — Paranatural Bioregeneration: Year Two.'\nThe abstract reads: 'Subjects exposed to calibrated resonance fields\ndemonstrate accelerated tissue repair, elevated immune response, and in three cases,\ncomplete reversal of chronic injury.\nMechanism remains unclear. The building appears to want subjects healthy.\nThe building's motivations in this matter are not fully understood\nbut are, so far, not adverse. Proceed with cautious optimism. — Project Lead'").
 note(rejuvenation_room, session_log, "A handwritten session log clipped to one of the examination chairs:\n'Day 1: Standard headache, gone by hour two.\nDay 3: Old shoulder injury — the one from the car accident in 2019 —\ncompletely undetected at scan.\nDay 7: Dr V asked me to stop logging this. I'm continuing privately.\nWhatever this room is doing, it's doing it on purpose.\nThe building knows I'm in here. I can feel it noticing. — Subject 4'").
 note(atrium, geometric_inscription, "Etched into the floor around the plinth, in a language that shouldn't be readable\nbut somehow is: 'The Astral Cat stood here before time was counted.\nReturn it and the House remembers.'").
 note(atrium, research_scrawl, "A torn page from a researcher's notebook, wedged under the plinth:\n'The resonance patterns converge at this point. Whatever belonged here\nhas been moved to the upper level for safekeeping. Bad idea.\nThe room has been wrong ever since. —R.H.'").
 note(atrium, artifact_warning, "A hastily scrawled memo pinned to the wall:\n'ARTIFACT CONTAINMENT WARNING: Throw artifact recovered from collapsed chamber.\nEXTREMELY VOLATILE when agitated. Staff authorized to deploy once per encounter only.\nUse THROW command to unleash. DO NOT handle carelessly.\nAftermath of last discharge took three weeks to clean. —Facility Security'").
-
 note(resonance_lab, resonance_log, "Research log, partially destroyed: 'The resonance pattern coalesces around\nthe object. It has begun to take the form of a weapon — a response, perhaps,\nto the paranatural energies saturating this building. Handle with extreme caution.\nThree bursts of fire were observed in testing. Do not exceed. —Dr. Darling'").
 note(resonance_lab, warning_placard, "A laminated placard, one corner melted: 'CAUTION: OBJECT OF POWER STUDY IN\nPROGRESS. Do not interact with the resonance mass without Director clearance.\nEnergy discharge may occur without warning.'").
 note(resonance_lab, scrawled_note, "Words scratched into the wall beside the table:\n'It wants to be used. I can feel it pulling. But every time it fires, it takes\nsomething with it — like it is eating the air. Three shots and the lights go out. —R.H.'").
-
 note(sub_lab, breach_memo, "A crumpled internal memo, nearly illegible: 'Wall failure in auxiliary lab —\ncause undetermined. Structural survey on hold pending paranatural clearance.\nDO NOT enter sub-lab until survey complete. —Facilities'").
 note(sub_lab, shelf_tag, "A label on the shelf above the capacitor, printed in Bureau font:\n'RESONANCE CAPACITOR — CHARGE AMPLIFICATION UNIT.\nFor use in weapon systems requiring extended discharge cycles.\nHandle with care. Do not exceed rated capacity.'").
-
 note(containment_hall, breach_report, "A pinned incident report, water-damaged: 'CELL BLOCK C — STATUS: COMPROMISED.\nAll units breached. Cause unknown. DO NOT attempt manual recontainment.\nWait for specialist team. — NOTE: Specialist team has not arrived.\nThis notice has been here for eleven days.'").
-
 note(cell_annex, intake_log, "The intake log for cell block C, open to the last completed entry:\n'SUBJECT: HISS WARDEN — CELL: SOLITARY EAST.\nCLASSIFICATION: ENTITY, TYPE 4. CONTAINMENT PROTOCOL: MAXIMUM.\nNOTE: Standard containment is insufficient. Paranatural dampeners installed.\nNOTE 2: Dampeners are insufficient. Director has been informed.\nNOTE 3: Director says keep it there. It hasn't tried to leave.\nWe are choosing to read that as good news.'\nThe entry after it was started and then torn out.'").
 note(cell_annex, transfer_memo, "An internal transfer memo still in its envelope, opened and re-folded:\n'RE: ENTITY IN SOLITARY EAST.\nRequest to transfer subject to a deeper containment level has been DENIED.\nRationale: the building will not permit transfer.\nThe entity appears to have formed a locational attachment to Solitary East.\nWe have decided it is preferable to have it stationary and monitored\nthan mobile and uncontained.\nProceed with enhanced monitoring. — Director'").
 note(cell_annex, cell_manifest, "A manifest of all occupied cells, tacked above the booking counter.\nMost entries are standard: names, Bureau case numbers, detainment reasons.\nNear the bottom, in a different ink and a different hand from all the others:\n'SOLITARY EAST — DO NOT INTERACT. DO NOT MAKE EYE CONTACT.\nDO NOT ENTER UNLESS YOU HAVE ALREADY ACCEPTED THAT YOU MAY NOT LEAVE.\n— Warden (retired)'").
-
 note(watch_post, monitor_log, "A shift log beside the monitor bank, entries going back months:\n'0600: Subject stationary. 1200: Subject stationary. 1800: Subject stationary.'\nEvery entry, every shift, every day.\nThen a gap of three days with nothing written.\nThen one final entry in shaking handwriting:\n'0600: Subject is no longer facing the wall.'").
 note(watch_post, psych_evaluation, "A Bureau psychological evaluation form, partially completed for a guard named Reyes:\n'Q: Do you feel safe in your current posting? A: No.\nQ: Do you understand the purpose of your watch duties? A: I watch the thing in solitary.\nQ: Has the subject ever communicated with you directly? A: Not in words.\nQ: Please elaborate. A: It knows I'm watching. I know it knows.\nWe have been having this conversation through reinforced glass for four months.\nI am requesting reassignment.'\nSTATUS stamp at the bottom: DENIED.").
 note(watch_post, routing_notice, "A handwritten note taped directly to the solitary monitor screen:\n'If you are reading this and you have a weapon,\nyou are the first person in two months who might be able to do something about that.\nGo east from the hall. You'll find it.\nIt will find you first but that's okay.\nIt hasn't killed anyone yet — it's been waiting for something.\nI think it's been waiting for you. — Last shift supervisor'").
-
 note(upper_hall, evacuation_notice, "A laminated evacuation notice, corners curling: 'In the event of a paranatural\nincursion, proceed calmly to the nearest exit. Do not run. Do not look back.\nDo not describe what you have seen to non-Bureau personnel.'").
 note(upper_hall, scratched_wall, "Words scratched into the wall at eye level, jagged and desperate:\n'IT FOLLOWS THE SOUND. STAY QUIET.'").
 note(upper_hall, torn_memo, "A torn internal memo: '...all personnel above clearance level 4 are advised\nto avoid the upper corridor after 22:00. Unauthorised resonance has been detected\nnear the Director's office. This is not a drill. —Security Division'").
 note(upper_hall, sticky_note, "A sticky note on a door handle: 'Keys still missing. Do NOT prop this door open.\nLast time cost us three agents and a filing cabinet. —M'").
-
 note(security_post, incident_report, "Incident report, partially burned: 'Officers responded to anomalous readings on floor 3. Two personnel unaccounted for. Recommend immediate evacuation of — ' The rest is ash.").
 note(security_post, monitor_note, "Sticky note on a monitor: 'Camera 7 has been showing the same frame\nfor three days. Maintenance says it's fine. Maintenance has not been seen since.'").
 note(security_post, duty_roster, "A duty roster pinned to the wall. Every name has been crossed out in red ink. Yours is not on the list — but there's a blank line at the bottom.").
-
 note(records_room, classified_memo, "Stamped CLASSIFIED: 'Project THRESHOLD — all documentation to be purged\nupon containment failure. If you are reading this, containment has failed.'").
 note(records_room, personnel_file, "A personnel file, name redacted: 'Subject displays unusual resistance\nto paranatural influence. Recommended for Director programme. —Dr. Darling'").
 note(records_room, filing_note, "Handwritten on a folder tab: 'DO NOT FILE UNDER H. The H files have\nbeen walking again.'").
 note(records_room, torn_letter, "A torn letter, sender unknown: 'They said the House chooses its Director.\nI didn't believe them. I believe them now. Don't come looking for me.'").
-
 note(directors_office, directors_journal, "The Director's open journal, final entry: 'The weapon spoke to me again last night.\nIt said a name I didn't recognise. I wrote it down. I burned the page.\nI still hear it.'").
 note(directors_office, memo_to_staff, "An unsent memo: 'To all Bureau staff — the situation is under control.\nPlease disregard the sounds coming from the walls. This is normal.\nEverything is normal. —Director'").
-
 note(anteroom, appointment_log, "A leather-bound appointment diary, open on the last used page:\n'0900 — Darling (Project Threshold debrief).\n1100 — Security briefing re: upper levels.\n1400 — REDACTED.'\nThe 1400 entry has been crossed out, then crossed out again, then torn half away.").
 note(anteroom, commendation, "The framed commendation reads: 'Awarded to the Director for exceptional service\nin the containment and study of paranatural phenomena.\nThe Bureau thanks you for your sacrifice.'\nBelow, in the Director's handwriting: 'They knew. They always knew.'").
 note(anteroom, photo_caption, "The photograph on the wall has a caption typed on a strip of card and taped below the frame: 'THRESHOLD TEAM — YEAR THREE.' Five people. All standing. None with faces. You look closer. The faces aren't missing. They're just turned away. All five of them, turned to face something just outside the frame.").
-
 note(ops_room, tactical_annotation, "One annotation on the wall map, circled in red three times:\n'RESONANCE CONVERGENCE POINT — DO NOT TREAT AS FIXED.'\nBelow it, in increasingly hurried handwriting:\n'It moves. —Day 1.'\n'It's moving faster. —Day 4.'\n'It found the weapon. —Day 7.'\nDay 8 onward is blank.").
 note(ops_room, radio_log, "A printed radio transmission log, the last entry time-stamped at 03:14:\n'All units report Hiss incursion, floors 2 through 7. Director unresponsive.\nContainment protocol abandoned. All personnel advised to — '\nThe log ends mid-sentence. The printer is still warm.").
 note(ops_room, field_report, "A handwritten field report, unsigned:\n'The Service Weapon does not respond to standard issue personnel.\nAttempts to retrieve have resulted in two injuries and one disappearance.\nConclusion: the weapon is choosing. Recommend we stop sending people\nuntil it picks one. —Unknown'").
-
 note(lab77, experiment_log, "Lab journal entry: 'The specimens respond to the resonance.\nContainment fields holding. —Dr. Darling'").
 note(lab77, warning_sign, "A faded warning sign: 'DANGER: Dimensional Anomaly Active. Personnel must maintain safety protocols.'").
-
 note(lab77_locked, door_notice, "The official placard beside the sealed door reads:\n'LAB 77 — RESTRICTED ACCESS — DIRECTOR CLEARANCE REQUIRED.\nUnauthorised entry will result in immediate termination of employment.'\nBelow it, in biro: 'Also possibly just termination. — T'").
-
 note(archive_bay, requisition, "A Bureau requisition form, unfiled:\n'Request for additional containment units, Lab 77 annex.\nReason: current capacity exceeded. Estimated wait: 6 weeks.\nNote: we may not have 6 weeks. —Dr. Darling'").
-
 note(secret_chamber, research_log, "Faded research log: 'Subject exhibits anomalous properties. Further containment required. —Dr. Darling'").
 note(secret_chamber, equipment_note, "Scrawled note: 'The Bureau's secrets buried deep. Some doors should stay locked.'").
 note(secret_chamber, final_note, "A hastily written note: 'If you're reading this, then the House has let you in.\nTrust nothing. Find him and get out.'").
-
 note(demolition_room, important, "*** IMPORTANT *** Scrawled in large, frantic letters across a torn Bureau memo:\n'DO NOT ENTER THE ROOM TO THE NORTH. I REPEAT — DO NOT ENTER.\nThree agents went in. None came back. Whatever is in there is not containable.\nIt is not survivable. Turn around. GO SOUTH. —Last surviving member of Retrieval Team 7'").
-
 note(blast_corridor, structural_report, "A laminated structural survey, pinned to a buckled wall:\n'WING C — NORTH ANNEX: UNSAFE FOR OCCUPANCY.\nLoad-bearing walls compromised. Ceiling integrity: critical.\nCause of damage: designation UNKNOWN.\nRecommendation: full evacuation and controlled demolition.'\nHandwritten below: 'No one left to do the demolition. —Eng. K'").
 note(blast_corridor, scorch_markings, "In the scorch marks on the floor, partially obscured by debris:\na pattern. Concentric circles with a central point.\nIt wasn't made by the blast. The blast happened around it.\nSomething was standing here when the walls came in.").
 note(blast_corridor, survivor_note, "Wedged behind a collapsed shelf unit, a handwritten note on Bureau stationery:\n'Whoever finds this: the shield didn't cause this.\nThe shield STOPPED this. Whatever came through from the north,\nthe shield held it here. That's why the room looks like this.\nThat's why the shield is still there. —The last one out'").
-
 note(evidence_vault, open_canister, "The open canister on the workbench is labelled: 'CASE 88-DELTA — OBJECT CLASS: RESONANT.'\nThe half-finished report reads: 'Object continues to exhibit autonomous behaviour.\nIt has now arranged the other canisters in the vault in order of — '").
 note(evidence_vault, case_index, "A printed case index for the vault. Hundreds of entries. You scan down the list. Near the bottom, one entry has been circled in red: 'CASE 91-ALPHA — SUBJECT: FADEN, J. — STATUS: PENDING ARRIVAL.' The date on the entry is today.").
 note(evidence_vault, vault_memo, "An internal memo taped to the blast door from the inside:\n'Evidence vault secured per protocol. All case materials intact.\nNote: Case 91-Alpha file has been updated in advance of subject arrival —\nthe House insisted. We have stopped asking how it knows. —Archivist'").
-
 note(solitary, warden_log, "A crumpled guard log: 'Subject 117 — Faden, D. — transferred to solitary east wing\nby Director's order. Warden unit assigned for permanent containment.\nDO NOT engage subject directly. DO NOT open the east cell.\nSubject is not infected. Subject is leverage.'").
 note(solitary, scratched_door, "Scratched into the reinforced door at the far east end, from the inside:\n'Jesse. If you somehow get here. I knew you would. —D'").
-
 note(dylans_cell, etched_wall, "Scratched into the concrete beside the cot, small and careful: 'I stopped counting days. But she'll come. She always does. I just have to stay me until she gets here. —D'").
 
 /* ============================================
@@ -785,81 +752,43 @@ read_notes(Name) :-
    ============================================ */
 
 inner_thought(street, brother, "Dylan. You haven't seen him in years — not since the night everything fell apart. He disappeared without a word, and you told yourself you didn't care. You told yourself that for a long time. Then the dreams started. His voice. This building. Something in here took him, or called him, or changed him. You don't know which is worse. You just know you're not leaving without him.").
-
 inner_thought(street, here, "The Federal Bureau of Control. You used to think it was a myth — a government agency that didn't officially exist, dealing with things that officially couldn't happen. Now you're standing in front of it. It's taller than it should be. The geometry is wrong in ways you can't name. And somehow, it feels like it already knows you're here.").
-
 inner_thought(street, unarmed, "You're walking into a government building that doesn't officially exist, dealing with things that officially can't happen — and you're unarmed. Smart, Jesse. Real smart. Whatever is in there, it's not going to care that you came in peace. You need a weapon. Something that can handle whatever this place throws at you. There has to be something inside. Find it. Before it finds you first.").
-
 inner_thought(lobby, weapon, "You need the Service Weapon. You've heard about it — an Object of Power, a gun that chooses its Director. The last Director is dead. Which means it's waiting for someone new. Maybe that's you. You're not sure if that's terrifying or exactly what you came here for.").
-
 inner_thought(lobby, brother, "He came here. You're sure of it now. The feeling gets stronger the deeper you go — like the building is confirming it, room by room. He always did get drawn to the wrong things.").
-
 inner_thought(lobby, layout, "This place makes no sense. From the outside it looked like a normal government building — maybe ten, twelve floors. But in here the geometry is wrong. Corridors that shouldn't fit. Rooms that open onto other rooms with no space between them. You've been in two hallways and already you've lost your sense of direction. The Bureau calls it the Oldest House. You're starting to understand why. It doesn't feel built. It feels grown.").
-
 inner_thought(lobby, exploration, "Dylan could be anywhere in here. That's the reality you have to sit with. This building doesn't follow normal rules — rooms shift, corridors loop, whole wings show up where they shouldn't be. You're going to have to search every corridor. Every office. Every locked door you can find a key for. Leave no room unchecked. He's here. And you're not leaving until you find him.").
-
 inner_thought(lobby, clock, "The wall clock above the security desk. Noon, exactly. Or the building has decided that's what noon is. 12 o'clock straight up. 12:00. Something about that time feels important. You notice the locked suitcase on the bench. Maybe someone needed a code to get inside. Maybe they locked what was important with a time code. 1200. 12:00. The hour and the minute, no colon. You'll remember that.").
-
 inner_thought(atrium, patterns, "The floor is doing something. Moving, almost — or just on the edge of moving. You've seen geometry like this before. In the dreams. There's something missing here. Something that should be here and isn't. The room feels incomplete. Wrong. Like a sentence with the last word cut out.").
-
 inner_thought(atrium, object_power, "The throw artifact lying here radiates something heavy—not weight, but intention. Intent to do harm. The notes say THROW when it matters. One shot per encounter. A weapon of last resort, pure and violent. Part of you understands exactly what it wants to do.").
-
 inner_thought(rejuvenation_room, healing, "You can feel it working. That's the strange part — not that it works, but that you can feel it. A warmth that starts at the edges and moves inward. Like the building is paying attention to you specifically, finding the places that are wrong and making them less wrong. You've been in field hospitals. You've been in ERs. Nothing has ever felt like this. This feels like being wanted intact.").
-
 inner_thought(rejuvenation_room, cost, "The protocol sheet said three subjects showed anomalous results after ninety minutes. You don't ask what anomalous means because you think you already know. The building heals you because it needs you functional. That's a transaction, not a gift. You take the supplies anyway. You can think about what you owe later.").
-
 inner_thought(secret_chamber, dylan, "There he is. Dylan. He looks smaller than you remember. Older. Whatever happened to him in here, he's still breathing. That's enough. That has to be enough. You just have to get him out.").
-
 inner_thought(janitor_hall, ahti, "The janitor. Ahti. He shouldn't know anything useful — and yet he clearly does. The way he talks, the way he watches you move through this building. You've met people like him before. People who've been somewhere dangerous long enough that the danger stopped noticing them. Whatever Ahti's seen in here, it didn't touch him. You're not sure if that makes him the safest person in the building or the most dangerous.").
-
 inner_thought(utility_bay, drenchtov, "His name badge says DRENCHTOV, B. — Bureau Administration, Grade 3. He is eating a sandwich. The building is overrun, something is wrong with the walls, people are dead, and he is eating a sandwich and filling in a form. You've seen this before too: a certain kind of person who converts terror into paperwork and paperwork into calm. He's not okay. But he has a system. Right now, you almost envy him the system.").
-
 inner_thought(directors_office, director, "He's still here. The Director. Something moved him to end it in his own office, in his own chair, gun in hand — and whatever it was, he left the weapon behind. You don't know his name. You don't know what he saw. But you know this building chose him once, and it's pointing at you now. You pick up the gun. It feels right. That's the part that scares you.").
-
 inner_thought(anteroom, waiting, "Someone sat in this room not long ago and waited to go in. Maybe for good news. Maybe for orders. Maybe they already knew what they were going to find and sat here anyway, because the waiting was better than the knowing. You understand that. You sat in a lot of waiting rooms before you got here. This one just has better furniture.").
-
 inner_thought(ops_room, map, "The annotations stop on day seven. Whatever the Director saw on day seven was enough. You look at the map. The room marked RESONANCE CONVERGENCE POINT is the atrium. You've been there. You stood in it. You didn't feel like a convergence point. You felt like someone standing in a very large room not entirely sure what was happening. Maybe that's the same thing.").
-
 inner_thought(upper_hall, deeper, "You're further in than you meant to go. The lobby felt like a threshold — something you could still step back from. This doesn't. The corridor hums at a frequency you feel in your back teeth. You think about Dylan. You think about how he would have walked in here without hesitation, without thinking it through. You think maybe that's the difference between you. You think it too, anyway. And here you are.").
-
 inner_thought(containment_hall, cells, "The doors are all hanging open. Whatever was in these cells didn't wait to be let out. You try not to think about what was strong enough to do that and what might still be in here doing it. Keep moving. Don't look in the cells. You already broke the second rule.").
-
 inner_thought(cell_annex, intake, "Solitary East. The intake log gives it a cell number and a classification like it's just another detainee. Type 4 Entity. Maximum containment. Three escalating notes in the same file and then a page torn out. Whatever they put in that room, the paperwork stopped being adequate pretty quickly. You look east toward the hall. Something is at the end of it. You already knew that.").
-
 inner_thought(watch_post, watching, "Someone sat in this chair every day for months and watched a screen showing something that didn't move, in a room that shouldn't exist on most floor plans. And then one day it stopped facing the wall. And then the log stops. The feed is still running. You can see the corridor in solitary from here, the same fixed angle. You don't look at what's at the end of it. You already know what's there. You're going to have to go east eventually.").
-
 inner_thought(solitary, warden, "Something is wrong with the air in here. Heavy. Charged. Like standing near a transformer. Whatever is at the end of this block, it's been here a long time. Long enough that the building built itself around it. You tighten your grip on the Service Weapon. It hums back at you, just slightly. Okay. That's either reassuring or terrifying. Probably both.").
-
 inner_thought(resonance_lab, form, "It looks like a weapon the way a thunderstorm looks like weather. Technically accurate. Catastrophically understated. You can feel it pulling at the edges of your attention — not threatening, exactly. More like a question being asked in a frequency your brain isn't built to answer. You're going to pick it up anyway. You already know that. The room already knows that.").
-
 inner_thought(food_vendor, locked_box, "There's a locked box next to the food cart. The vendor hasn't mentioned it. Maybe he doesn't know what's in it. Maybe he put it there and forgot. The code has to be somewhere in this building — the Bureau documented everything. Someone wrote it down. You just have to find the right piece of paper.").
-
 inner_thought(north_alley, outside, "You're outside. Actually outside. The sky is still there — the same sky, the same light, the same air. None of that changed. The building behind you is taller from back here somehow, as if the alley is designed to make you feel it. You look up and don't bother counting the floors. Something in there is waiting for you to come back in. You already know you're going to.").
-
 inner_thought(south_lot, cars, "All those cars. All those people who drove to work this morning and parked in their usual spot and grabbed their badge from the passenger seat and walked in through the front door. Ordinary morning. Coffee. The permit on the car that says Level 4 Clearance and a name you recognise. You think about what it means to park your car and never come back for it. You think about it for longer than you mean to.").
-
 inner_thought(west_road, leaving, "You could just walk. Nothing is stopping you. Dylan isn't waiting at the end of every road in the world — just this one. You look west. Somewhere out there is a normal city doing normal things. You turn around. You've been turning around all your life. Just not usually this deliberately.").
-
 inner_thought(toilets, ordinary, "Running water. Lights that work. The smell of industrial cleaner. There is something almost funny about the whole thing — the rest of the building is falling apart and the facilities are still clean. You check your weapon. You breathe. One minute of being a person in a bathroom. Then back to work.").
-
 inner_thought(pipe_room, hidden, "Someone hid this here on purpose. Not dropped, not left behind — hidden. Wrapped up and pushed behind a pipe inside a wall that you can only get through if you're carrying a paranatural breach object. Whoever put this here knew it would stay hidden from almost everyone. They were either very careful or very scared. You suspect both.").
-
 inner_thought(sub_lab, capacitor, "An extended discharge unit — Bureau designation, shelf tag, everything labelled. They were ready for this. Or ready for something like this. You wonder if there's a difference. You slide it into your pocket. It doesn't hum. That's either a good sign or it just hasn't warmed up yet.").
-
 inner_thought(dylans_cell, finally, "You've been rehearsing this in your head since the front door. You thought you'd be angry. You thought maybe you'd arrive too late. You didn't plan for him to just be Dylan — exhausted, in a cell, watching the door like he knew exactly when it would open. You didn't plan for that to be the hard part.").
-
 inner_thought(security_post, static, "Every monitor is static. You stand in front of the bank of screens and look for a pattern in the noise. There isn't one. Or there is and it's running at a frequency you can't read. Someone sat here every shift watching for exactly this. The static was probably already there when they left. They just didn't know what it meant yet.").
-
 inner_thought(records_room, files, "This is the paper trail of something that shouldn't exist. Incidents, containment protocols, personnel evaluations — all filed, indexed, cross-referenced. The Bureau didn't just study the paranatural. They administered it. It had a budget. Quarterly reviews. Probably HR complaints. You'd laugh, but the H files are apparently walking.").
-
 inner_thought(lab77, darling, "Darling's name is on everything in here. The experiment logs, the safety protocols, the containment assessments. Bureau's lead researcher. Face of institutional optimism in the middle of dimensional collapse. You wonder if he's still somewhere in the building. You have a feeling that wondering that is the bad kind of sign.").
-
 inner_thought(demolition_room, shield, "It's hovering. A few inches off the pedestal, rotating just slightly. An Object of Power — same category as the Service Weapon. You can feel it the same way: present, aware, waiting. The demolition didn't touch it. Whatever took out the walls hit everything else and left the shield exactly where it was. It chose to stay. You walk toward it.").
-
 inner_thought(blast_corridor, blast, "The blast came from inside. You can tell from the way the walls folded — pressure expanding outward from a central point. Whatever happened in the main chamber, the corridor caught the overflow. And yet something was standing here in the middle of it and left a pattern in the floor instead of a body. You file that under things to think about later.").
-
 inner_thought(evidence_vault, case_file, "Your name is in a file here. Not Dylan's. Yours. Date: today. Status: pending arrival. They were expecting you before you knew you were coming. You think about what that means. You think about whether the Bureau found you or you found the Bureau. You decide that question might not have an answer you want.").
-
 inner_thought(archive_bay, records, "The Bureau kept records of everything. Every anomaly, every incident, every person who walked in and didn't come out the same. You had the idea that if you read enough files you could get ahead of it. You open a crate. It hums faintly. You close it again.").
 
 %% list_thoughts(+Room)
