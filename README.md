@@ -10,9 +10,7 @@ You play as Jesse, exploring the mysterious Oldest House—a sprawling paranorma
 
 Type commands to explore rooms, fight enemies, collect items, and solve puzzles. The game guides you with text descriptions and hints as you progress, use the help command to see all valid actions, view the transcript to an example walkthrough from game beginning to game end.
 
-## Running the Game
+## How to Run
 
-- **Standalone**: Load in SWI-Prolog with `?- [control].`
-- **Web version**: Start the server with `?- [server].`
-
-Enjoy your descent into the Oldest House.
+- **CLI**: Start the cli, with `swipl control.pl`
+- **Web version**: Start the server and web interface with `swipl server.pl`
