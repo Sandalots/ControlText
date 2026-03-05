@@ -1,4 +1,4 @@
-% HTTP server and web interface for control.pl
+% Sandy MacDonald - 52534948 - 05/03/2026 - server.pl, handles the http server hosting of the control.pl logic, and formats that logic onto the webpage.
 :- module(server, []).
 
 :- use_module(library(http/thread_httpd)).

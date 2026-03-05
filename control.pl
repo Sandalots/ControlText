@@ -1,104 +1,4 @@
 % Sandy MacDonald - 52534948 - 05/03/2026 - control.pl, main game logic for my control text adventure game adaption
-
-/* ============================================
-
-
-   ── ENTITIES ────────────────────────────────
-      Player: jesse
-      NPCs:   ahti (janitor_hall)
-              vendor (food_vendor)
-              dylan (dylans_cell) — win-state NPC
-      Enemies (Hiss):
-              hiss_guard    — spawned in upper_hall
-                              when service_weapon taken
-              hiss_guard_b  — starts in containment_hall
-              hiss_brute    — starts in atrium
-              hiss_boss     — starts in solitary;
-                              drops dylans_cell_key on death
-              hiss_infection_N — dynamically spawned;
-                              one per infectable room
-
-   ── KEY ITEMS ───────────────────────────────
-      keys           — unlocks upper_hall from lobby
-      lab77_key      — unlocks lab77 from lobby
-                       (inside locked_box at food_vendor;
-                        code: BUREAU47)
-      dylans_cell_key— dropped by hiss_boss
-      service_weapon — main weapon; triggers hiss_guard
-                       spawn and enables gated areas
-      smash          — found in lab77; unlocks secret_chamber
-      cat_statue     — place on atrium plinth for upgrades
-      flower         — place on west_road for health_kit
-      shield         — one-hit damage absorber (demolition_room)
-      health_kit     — restores HP to max
-      health_upgrade — +5 max HP and current HP
-      charge_upgrade — +2 max weapon charge and current charge
-      locked_box     — unlockable container at food_vendor
-      weapon_form    — found in resonance_lab; triples weapon
-                       damage but costs 3 charges per shot
-      charge_upgrade — also found in sub_lab (west of resonance_lab,
-                       requires smash)
-
-   ── ARCHITECTURE ────────────────────────────
-      This file is designed to run in two modes:
-        Standalone — consulted directly in SWI‑Prolog;
-                     output predicates (color_ln, normal_text
-                     etc.) use ansi_format/3 for the terminal.
-        Web server — loaded by server.pl via :- [control];
-                     output predicates are overridden before
-                     loading so all text is buffered as JSON
-                     for the browser front‑end (index.html).
-      The :- if(\+ current_module(server)) guard in the
-      OUTPUT PREDICATES section handles the split.
-
-   ── EXECUTION FLOW ──────────────────────────
-      Standalone: initialization(start, main)
-        start/0 → show_map, describe, game_loop
-        game_loop/0 → read line → parse/2 → dispatch/1
-                    → recurse (or halt on quit/game_over)
-      Web server: handle_start / handle_command
-        → reset_game / init_game_output
-        → parse(Tokens, Command) → dispatch(Command)
-        → buf_flush(Lines) → reply_json_dict
-
-   ── COLOUR SCHEME ───────────────────────────
-        cyan    — map / room headers / HUD lists
-        green   — narrative descriptions
-        yellow  — highlights, combat results, status
-        magenta — tips / hints
-        red     — NPC speech, notes, alerts
-   ============================================ */
-
-/* ============================================
-      DYNAMIC DECLARATIONS
-      All mutable state is declared here so
-      the file can be cleanly consulted/reloaded.
-
-      Naming conventions:
-        location(Entity, Room)   — where something is
-        health(Entity, HP)       — current hit points
-        max_health(Entity, MaxHP)— upper HP ceiling
-        has(Entity, Item)        — inventory membership
-        object(Item, Room)       — item lying in a room
-        weapon_charge(E, C)      — current shoot charges
-        max_weapon_charge(E, MC) — charge ceiling
-        read_note(Room, NoteId)  — marks a note as read
-        hiss_infected(Room)      — room has live infection
-        outside_attempts(N)      — how many times Jesse
-                                   tried to wander off
-      One-shot flags (no payload):
-        game_over              — set on death or win
-        health_kit_tip_shown   — first-kill tip guard
-        attack_tip_shown       — first-enemy tip guard
-        weapon_just_taken      — suppresses infection on
-                                 the turn the weapon is
-                                 picked up (one-shot)
-        cat_statue_placed      — plinth puzzle complete
-        shield_active          — next hit is absorbed
-        weapon_form_active     — weapon form acquired;
-                                 3× damage / 3-charge cost
-   ============================================ */
-
 :- dynamic location/2.          % location(Entity, Room)
 :- dynamic health/2.            % health(Entity, HP)
 :- dynamic max_health/2.        % max_health(Entity, MaxHP)
@@ -119,30 +19,8 @@
 :- dynamic sense_active/0.      % persistent: paranatural sense item taken; reveals adjacent enemies
 :- dynamic outside_attempts/1.  % outside_attempts(N) — escalating flavour counter
 :- dynamic throw_used/0.     % throw_used — tracks if throw artifact was used in current combat
-
-/* ============================================
-      DISCONTIGUOUS DECLARATIONS
-      These predicates have clauses scattered
-      throughout the file (rather than grouped
-      all together). Allows organizing by
-      functionality (e.g. all combat-related
-      code together) instead of by predicate.
-      
-      Predicates with multiple enemy types
-      use multi-clause patterns where each
-      enemy variant gets grouped in the same
-      section for readability:
-        • combat(jesse, Enemy) has separate
-          sections for hiss_guard, hiss_guard_b,
-          hiss_brute, hiss_boss, hiss_spawn,
-          and infection entities.
-        • enemy_turn predicates (one per enemy
-          type) appear right after their
-          corresponding combat clauses.
-   ============================================ */
-
    
-% delcare combat related predicates used much further down the prolog source file
+% declares combat related predicates used much further down the prolog source file
 :- discontiguous take_enemy_hit/1.
 :- discontiguous check_death/0.
 :- discontiguous fire_weapon/2.
@@ -157,43 +35,23 @@
 :- use_module(library(pcre)).       % for cleaning up password tokens
 :- use_module(library(ansi_term)).  % for coloring the text output in the terminal
 
-/* ============================================
-      INPUT HELPERS
-      Token cleaning for the parser.
-   ============================================ */
-
-%% clean_token_smart(+In, -Out)
-%  Keeps alphanumeric codes intact (e.g. bureau47);
-%  keeps pure numeric codes intact (e.g. 1200);
-%  strips leading/trailing punctuation from plain words.
+% strips leading/trailing punctuation from plain words.
 clean_token_smart(In, Out) :-
     ( re_match('[a-z]+[0-9]|[0-9]+[a-z]|[0-9]+'/i, In)
     -> Out = In
     ;  clean_token(In, Out)
     ).
 
-%% clean_token(+In, -Out)
 %  Strips any non‑letter characters from the start and end of a token.
 clean_token(In, Out) :-
     re_replace('(^[^a-z]+|[^a-z]+$)'/i, '', In, Out).
 
-/* ============================================
-      OUTPUT PREDICATES
-      Colour-coded terminal output.
-      Defined only in standalone mode — when
-      loaded by server.pl these are provided
-      by the server module instead.
-   ============================================ */
 
 :- if(\+ current_module(server)).
 
-%% last_color/1 — tracks the most recently used output colour.
-%  A blank line is inserted automatically when the colour changes,
-%  to visually separate output blocks.
+% track last used color
 last_color(default).
 
-%% color_ln(+Color, +Text)
-%  Print Text in the given ANSI Color; insert blank line on colour change.
 color_ln(Color, Text) :-
     ( last_color(LastColor) -> true ; LastColor = default ),
     ( LastColor \= Color, LastColor \= default -> writeln("") ; true ),
@@ -201,14 +59,10 @@ color_ln(Color, Text) :-
     retractall(last_color(_)),
     assert(last_color(Color)).
 
-%% space_if_color_changed
-%  Emit a blank line if ANY colour other than default has been used.
-%  Useful as an explicit separator between output sections.
 space_if_color_changed :-
     last_color(LastColor),
     ( LastColor \= default -> writeln("") ; true ).
 
-%% normal_text(+Text)   — green: narrative prose
 normal_text(Text) :-
     ( last_color(LastColor) -> true ; LastColor = default ),
     ( LastColor \= green, LastColor \= default -> writeln("") ; true ),
@@ -216,7 +70,6 @@ normal_text(Text) :-
     retractall(last_color(_)),
     assert(last_color(green)).
 
-%% highlight_text(+Text) — yellow: status, combat results, HUD info
 highlight_text(Text) :-
     ( last_color(LastColor) -> true ; LastColor = default ),
     ( LastColor \= yellow, LastColor \= default -> writeln("") ; true ),
@@ -224,7 +77,6 @@ highlight_text(Text) :-
     retractall(last_color(_)),
     assert(last_color(yellow)).
 
-%% map_text(+Text) — cyan: map, room location header, room lists
 map_text(Text) :-
     ( last_color(LastColor) -> true ; LastColor = default ),
     ( LastColor \= cyan, LastColor \= default -> writeln("") ; true ),
@@ -232,11 +84,9 @@ map_text(Text) :-
     retractall(last_color(_)),
     assert(last_color(cyan)).
 
-%% map_text_bold(+Text) — bold cyan: bold map location names (server override in server.pl)
 map_text_bold(Text) :-
     ansi_format([fg(cyan), bold], '~w', [Text]).
 
-%% tip_text(+Text) — magenta bold: gameplay hints
 tip_text(Text) :-
     ( last_color(LastColor) -> true ; LastColor = default ),
     ( LastColor \= magenta, LastColor \= default -> writeln("") ; true ),
@@ -244,29 +94,15 @@ tip_text(Text) :-
     retractall(last_color(_)),
     assert(last_color(magenta)).
 
-%% speak(+Who, +Text) — red italic: NPC dialogue
 speak(ahti,   Text) :- ansi_format([fg(red), italic], '~w~n', [Text]).
 speak(vendor, Text) :- ansi_format([fg(red), italic], '~w~n', [Text]).
 speak(dylan,  Text) :- ansi_format([fg(red), italic], '~w~n', [Text]).
 speak(_,      Text) :- normal_text(Text).
 
-%% note_text(+Text) — red italic: readable notes and alerts
 note_text(Text) :-
     ansi_format([fg(red), italic], '~w~n', [Text]).
 
 :- endif.
-
-/* ============================================
-      NPC VISIBILITY
-      Determines which entities are shown when
-      listing room occupants via list_occupants/1.
-
-      Friendly NPCs (ahti, vendor, dylan) are
-      always visible.  Hiss enemies are hidden
-      until Jesse acquires the Service Weapon —
-      before that point the player cannot see
-      or interact with them at all.
-   ============================================ */
 
 visible_npc(ahti).
 visible_npc(vendor).
@@ -278,7 +114,6 @@ visible_npc(E) :-
     is_hiss_enemy(E),
     has(jesse, service_weapon).
 
-
 % check if a entity is a hiss enemy or not for use in combat, visibility, and map display predicates.
 is_hiss_enemy(hiss_guard).
 is_hiss_enemy(hiss_guard_b).
@@ -286,7 +121,6 @@ is_hiss_enemy(hiss_spawn).
 is_hiss_enemy(hiss_brute).
 is_hiss_enemy(hiss_boss).
 is_hiss_enemy(E) :- atom_concat(hiss_infection_, _, E). % for dynamic hiss_infection random enemies
-
 
 % display names for enemie npcs, used to announce enemies in the room and combat announcements and results.
 enemy_display_name(hiss_guard,   'Hiss Guard').
@@ -296,7 +130,6 @@ enemy_display_name(hiss_brute,   'Hiss Brute').
 enemy_display_name(hiss_boss,    'Hiss Warden').
 enemy_display_name(E, 'Hiss (Infection)') :-
     atom_concat(hiss_infection_, _, E).
-
 
 % helper predicate for checking if there's a live enemy in the room, used to trigger combat tips and block movement.
 living_enemy_here(Room) :-
@@ -361,16 +194,13 @@ announce_enemies(Room) :-
 :- assertz(location(hiss_boss,    solitary)).
 :- assertz(location(vendor,       food_vendor)).
 :- assertz(location(dylan,        dylans_cell)).
-
 :- assertz(health(jesse,        100)).
 :- assertz(max_health(jesse,    100)).
 :- assertz(health(hiss_brute,    50)).
 :- assertz(health(hiss_guard_b,  30)).
 :- assertz(health(hiss_boss,    100)).
-
 :- assertz(weapon_charge(jesse,     10)).
 :- assertz(max_weapon_charge(jesse, 10)).
-
 :- assertz(outside_attempts(0)).
 
 % static object items, initial placement at the start of the game, and static NPC locations. Dynamic enemies like the hiss_guard are not included here since they spawn based on player actions rather than being present from the start or dynamic items such as the final boss enemy's key, which is dropped on death.
@@ -408,9 +238,7 @@ announce_enemies(Room) :-
 :- assertz(object(charge_upgrade, evidence_vault)).
 :- assertz(location(hartwell,     demolition_room)).
 
-
 % connecting each room to its adjacent rooms.
-/* --- Street / entrance --- */
 connected(street,      lobby,       enter).
 connected(street,      lobby,       north).
 connected(lobby,       street,      exit).
@@ -425,8 +253,6 @@ connected(food_vendor, south_lot,   south).
 connected(south_lot,   food_vendor, north).
 connected(street,      west_road,   west).
 connected(west_road,   street,      east).
-
-/* --- Lobby branches --- */
 connected(lobby,        janitor_hall, east).
 connected(janitor_hall, lobby,        west).
 connected(janitor_hall, toilets,      north).
@@ -435,8 +261,6 @@ connected(toilets,      pipe_room,    north) :- has(jesse, smash).
 connected(pipe_room,    toilets,      south) :- has(jesse, smash).
 connected(janitor_hall, utility_bay,  south).
 connected(utility_bay,  janitor_hall, north).
-
-/* --- Atrium / containment — requires Service Weapon --- */
 connected(janitor_hall,     atrium,             east) :- has(jesse, service_weapon).
 connected(atrium,           janitor_hall,       west) :- has(jesse, service_weapon).
 connected(atrium,            containment_hall,   east) :- has(jesse, service_weapon).
@@ -447,20 +271,12 @@ connected(containment_hall,  watch_post,         south) :- has(jesse, service_we
 connected(watch_post,        containment_hall,   north) :- has(jesse, service_weapon).
 connected(atrium,           rejuvenation_room,  north) :- has(jesse, service_weapon).
 connected(rejuvenation_room, atrium,            south) :- has(jesse, service_weapon).
-
-/* --- Resonance Lab — requires Service Weapon --- */
 connected(atrium,        resonance_lab, south) :- has(jesse, service_weapon).
 connected(resonance_lab, atrium,        north) :- has(jesse, service_weapon).
-
-/* --- Solitary — requires Service Weapon --- */
 connected(containment_hall, solitary,         east) :- has(jesse, service_weapon).
 connected(solitary,         containment_hall, west) :- has(jesse, service_weapon).
-
-/* --- Dylan's Cell — requires dylans_cell_key (dropped by boss) --- */
 connected(solitary,    dylans_cell, east) :- has(jesse, dylans_cell_key).
 connected(dylans_cell, solitary,    west) :- has(jesse, dylans_cell_key).
-
-/* --- Upper hall — requires keys (found in lobby) --- */
 connected(lobby,            upper_hall,       north) :- has(jesse, keys).
 connected(upper_hall,       lobby,            south).
 connected(upper_hall,       directors_office, north).
@@ -469,40 +285,26 @@ connected(upper_hall,       security_post,    east).
 connected(security_post,    upper_hall,       west).
 connected(upper_hall,       records_room,     west).
 connected(records_room,     upper_hall,       east).
-
-/* --- Director's office north wing --- */
 connected(directors_office, demolition_room,  north).
 connected(demolition_room,  directors_office, south).
 connected(demolition_room,  death_room,       north).
 connected(death_room,       demolition_room,  south).
-
-/* --- Blast Corridor & Evidence Vault — flanking the Demolition Room --- */
 connected(demolition_room, blast_corridor,  west).
 connected(blast_corridor,  demolition_room, east).
 connected(demolition_room, evidence_vault,  east).
 connected(evidence_vault,  demolition_room, west).
-
-/* --- Anteroom & Ops Room — flanking the Director's office --- */
 connected(directors_office, anteroom, west).
 connected(anteroom,         directors_office, east).
 connected(directors_office, ops_room, east).
 connected(ops_room,         directors_office, west).
-
-/* --- Lab 77 — locked/unlocked depending on lab77_key --- */
 connected(lobby,        lab77_locked, west) :- \+ has(jesse, lab77_key).
 connected(lab77_locked, lobby,        east) :- \+ has(jesse, lab77_key).
 connected(lobby,        lab77,        west) :-   has(jesse, lab77_key).
 connected(lab77,        lobby,        east) :-   has(jesse, lab77_key).
-
-/* --- Archive Bay — west of Lab 77, no gate --- */
 connected(lab77,        archive_bay, west).
 connected(archive_bay,  lab77,       east).
-
-/* --- Secret chamber — requires smash object --- */
 connected(lab77,          secret_chamber, south) :- has(jesse, smash).
 connected(secret_chamber, lab77,          north) :- has(jesse, smash).
-
-/* --- Sub-Lab — west of resonance_lab, requires smash --- */
 connected(resonance_lab, sub_lab,        west) :- has(jesse, smash).
 connected(sub_lab,       resonance_lab,  east) :- has(jesse, smash).
 
@@ -660,8 +462,7 @@ note(solitary, warden_log, "A crumpled guard log: 'Subject 117 — Faden, D. —
 note(solitary, scratched_door, "Scratched into the reinforced door at the far east end, from the inside:\n'Jesse. If you somehow get here. I knew you would. —D'").
 note(dylans_cell, etched_wall, "Scratched into the concrete beside the cot, small and careful: 'I stopped counting days. But she'll come. She always does. I just have to stay me until she gets here. —D'").
 
-%% list_notes(+Room)
-%  Show IDs of all unread notes in Room on arrival.
+% Show IDs of all unread notes in Room on arrival.
 list_notes(Room) :-
     findall(Id, (note(Room, Id, _), \+ read_note(Room, Id)), Unread),
     ( Unread = [] -> true
@@ -673,8 +474,7 @@ list_notes(Room) :-
       writeln("")
     ).
 
-%% read_notes(all)
-%  Read and mark all unread notes in the current room.
+% Read and mark all unread notes in the current room.
 read_notes(all) :-
     location(jesse, Room),
     findall(Id-Text, (note(Room, Id, Text), \+ read_note(Room, Id)), Pairs),
@@ -686,7 +486,6 @@ read_notes(all) :-
        ))
     ).
 
-%% read_notes(+Name)
 %  Read a single named note in the current room.
 read_notes(Name) :-
     location(jesse, Room),
@@ -740,8 +539,7 @@ inner_thought(blast_corridor, blast, "The blast came from inside. You can tell f
 inner_thought(evidence_vault, case_file, "Your name is in a file here. Not Dylan's. Yours. Date: today. Status: pending arrival. They were expecting you before you knew you were coming. You think about what that means. You think about whether the Bureau found you or you found the Bureau. You decide that question might not have an answer you want.").
 inner_thought(archive_bay, records, "The Bureau kept records of everything. Every anomaly, every incident, every person who walked in and didn't come out the same. You had the idea that if you read enough files you could get ahead of it. You open a crate. It hums faintly. You close it again.").
 
-%% list_thoughts(+Room)
-%  Show available thought IDs for the current room.
+% Show available thought IDs for the current room.
 list_thoughts(Room) :-
     findall(Id, inner_thought(Room, Id, _), Thoughts),
     ( Thoughts = [] -> true
@@ -753,8 +551,7 @@ list_thoughts(Room) :-
       writeln("")
     ).
 
-%% think_thought(+Name)
-%  Display a named inner thought if available in the current room.
+% Display a named inner thought if available in the current room.
 think_thought(Name) :-
     location(jesse, Room),
     ( inner_thought(Room, Name, Text)
@@ -762,13 +559,6 @@ think_thought(Name) :-
     ;  normal_text("You can't focus on that right now.")
     ).
 
-/* ============================================
-      PLACE ITEM PUZZLE ACTIONS
-      Items that must be placed in specific rooms
-      to trigger puzzle effects.
-   ============================================ */
-
-%% place_item(cat_statue)
 %  Place the cat statue on the atrium plinth to spawn upgrade items.
 place_item(cat_statue) :-
     location(jesse, atrium), has(jesse, cat_statue), \+ cat_statue_placed, !,
@@ -792,7 +582,6 @@ place_item(cat_statue) :-
 place_item(cat_statue) :-
     normal_text("You don't have the cat statue.").
 
-%% place_item(flower)
 %  Lay the flower on west_road to spawn a health kit.
 place_item(flower) :-
     location(jesse, west_road), has(jesse, flower), !,
@@ -815,12 +604,7 @@ place_item(Item) :-
     format(atom(Msg), "You can't place the ~w here.", [Item]),
     normal_text(Msg).
 
-/* ============================================
-      DIALOGUE
-      NPC conversation handlers.
-      Each talk_to/1 clause guards on location.
-   ============================================ */
-
+% Dialogue with npcs, triggered by 'talk to <npc>' command. Each npc has specific dialogue based on location and context, providing information, backstory, or hints to the player.
 talk_to(ahti) :-
     location(jesse, janitor_hall), !,
     ( has(jesse, keys)
@@ -840,13 +624,11 @@ talk_to(okoro) :-
     normal_text("He pulls up a schematic on the terminal."),
     speak(okoro, "'From here, there's a chamber to the south that's been sealed since the seventies.\nThe object will get you through.\nAnd there's a sub-level off the resonance lab on this floor —\nsame principle. Carry it, the way opens.'"),
     speak(okoro, "'Take it. Carefully.\nDon't put it down near anything structural you want to keep standing.'"),
-    normal_text("He sits back down at his terminal with the air of someone \
-who has done everything they can and is now waiting to see what happens.").
+    normal_text("He sits back down at his terminal with the air of someone \nwho has done everything they can and is now waiting to see what happens.").
 
 talk_to(hartwell) :-
     location(jesse, demolition_room), !,
-    normal_text("She's crouched near the pedestal, making notes on a clipboard. \
-She doesn't look up immediately."),
+    normal_text("She's crouched near the pedestal, making notes on a clipboard. \nShe doesn't look up immediately."),
     speak(hartwell, "'Don't touch it yet.'"),
     normal_text("She stands, tucks the clipboard under her arm, and faces you."),
     speak(hartwell, "'Hartwell. Parapsychics, Object Research. I've been studying this thing\nsince it arrived in this room, which was — '"),
@@ -918,65 +700,6 @@ show_credits :-
     highlight_text("Type 'restart' to play again or 'quit' or 'exit' to exit."),
     assertz(game_over).
 
-/* ============================================
-      COMBAT
-      Each named enemy has its own pair of
-      predicates:
-
-        combat(jesse, <enemy>)
-          Called by dispatch(attack) or
-          dispatch(attack(<enemy>)).
-          Validates weapon ownership and enemy
-          liveness, prints damage, then calls
-          fire_weapon/2 to deduct charge.
-          On success, immediately invokes the
-          matching enemy_turn_* predicate.
-
-        enemy_turn_* / enemy_turn
-          Checks if the enemy just died.
-            • Dead  → print kill banner, remove
-                      from location, recharge weapon,
-                      apply any death rewards
-                      (e.g. dylans_cell_key from boss).
-            • Alive → print retaliation message
-                      and call take_enemy_hit/1.
-
-      Enemy damage values:
-        hiss_guard / hiss_guard_b — deals 25 per hit;
-                                    30 HP pool
-        hiss_brute                — deals 30 per hit;
-                                    50 HP pool
-        hiss_boss (Warden)        — deals 35 per hit;
-                                    100 HP pool;
-                                    player deals 15/shot
-        hiss_infection_N          — deals 20 per hit;
-                                    30 HP pool
-
-      Shared helpers:
-        fire_weapon(+Enemy, +Dmg)
-          — check charge > 0, deal Dmg to Enemy,
-            decrement charge by 1.
-        take_enemy_hit(+Dmg)
-          — if shield_active: absorb and clear flag;
-            else subtract Dmg from Jesse's HP and
-            call check_death/0.
-        check_death/0
-          — assert game_over and print death screen
-            if Jesse's HP ≤ 0.
-        recharge (inline after kill)
-          — restore weapon_charge to max_weapon_charge.
-   ============================================ */
-
-/* --- Shared helpers --- */
-
-%% take_enemy_hit(+Dmg)
-%  Subtract Dmg from Jesse's health, or absorb with shield if active.
-%  After applying damage, prints both HP and charge as a HUD update,
-%  then calls check_death/0.
-%  
-%  Decision tree:
-%    • If shield is active: retract the active flag, show message, take no damage.
-%    • Otherwise: subtract damage from Jesse's current HP, show HUD with new values, check for death.
 take_enemy_hit(Dmg) :-
     ( shield_active
     -> retract(shield_active),
@@ -995,8 +718,7 @@ take_enemy_hit(Dmg) :-
        check_death
     ).
 
-%% check_death
-%  Assert game_over and print death screen if Jesse's HP ≤ 0.
+% Assert game_over and print death screen if Jesse's HP ≤ 0.
 check_death :-
     health(jesse, HP),
     ( HP =< 0
@@ -1010,15 +732,6 @@ check_death :-
     ; true
     ).
 
-%% weapon_dmg(+Base, -Actual, -Crit)
-%  Returns actual damage and whether it was a critical hit.
-%  1-in-3 chance of crit: triples the (possibly weapon-form-boosted) damage.
-%  weapon_form_active first multiplies by 3, then crit multiplies by 3 again.
-%  
-%  Damage calculation order:
-%    1. Check if weapon_form_active: if yes, multiply Base by 3 → Boosted. Otherwise Boosted = Base.
-%    2. Roll 1-3: if roll is 1 (33% chance), set Crit=true and Actual = Boosted*3.
-%                Otherwise Crit=false and Actual = Boosted (no crit multiplier).
 weapon_dmg(Base, Actual, Crit) :-
     ( weapon_form_active -> Boosted is Base * 3 ; Boosted = Base ),
     random_between(1, 3, Roll),
@@ -1027,17 +740,6 @@ weapon_dmg(Base, Actual, Crit) :-
     ;  Actual = Boosted,      Crit = false
     ).
 
-%% fire_weapon(+Enemy, +FinalDmg, +Cost)
-%  Core weapon-firing logic shared by all combat/2 clauses.
-%  Checks current weapon charge against cost; fails if insufficient.
-%  On success: applies FinalDmg to target and decrements Jesse's weapon_charge.
-%  
-%  Important: FinalDmg and Cost are pre-calculated by the caller (combat/2)
-%  based on weapon_form_active state:
-%    • weapon_form_active: FinalDmg = 3 * base * (3 if crit else 1), Cost = 3
-%    • otherwise:         FinalDmg = 1 * base * (3 if crit else 1), Cost = 1
-%  
-%  This separation allows combat clauses to print damage info before firing.
 fire_weapon(Enemy, FinalDmg, Cost) :-
     weapon_charge(jesse, Charge),
     ( Charge < Cost
@@ -1050,44 +752,32 @@ fire_weapon(Enemy, FinalDmg, Cost) :-
        update_weapon_charge(jesse, NewCharge)
     ).
 
-/* ============================================
-      HELPER PREDICATES FOR STATE MANAGEMENT
-      Consolidate repeated update patterns
-      to reduce boilerplate and improve maintainability.
-   ============================================ */
-
-%% update_health(+Entity, +NewHP)
-%  Update entity health with retract/assertz pattern.
+% Update entity health 
 update_health(Entity, NewHP) :-
     retractall(health(Entity, _)),
     assertz(health(Entity, NewHP)).
 
-%% update_weapon_charge(+Entity, +NewCharge)
-%  Update weapon charge state.
+% Update weapon charge state.
 update_weapon_charge(Entity, NewCharge) :-
     retractall(weapon_charge(Entity, _)),
     assertz(weapon_charge(Entity, NewCharge)).
 
-%% recharge_weapon
-%  Restore jesse's weapon to max charge and announce.
+% Restore jesse's weapon to max charge and announce.
 recharge_weapon :-
     max_weapon_charge(jesse, MC),
     update_weapon_charge(jesse, MC),
     format(atom(RMsg), "Service Weapon recharged to ~w/~w.", [MC, MC]),
     highlight_text(RMsg).
 
-%% weapon_cost(-Cost)
-%  Get cost of next attack based on current weapon form.
+% Get cost of next attack based on current weapon form.
 weapon_cost(Cost) :-
     ( weapon_form_active -> Cost = 3 ; Cost = 1 ).
 
-%% throw_damage(+Enemy, -Damage)
-%  Get throw artifact damage for specific enemy type.
-throw_damage(hiss_boss, 45) :- !.
+% Get throw artifact damage for specific enemy type.
+throw_damage(hiss_boss, 60) :- !. % boss takes double damage from throw
 throw_damage(_, 30).  % All other enemies take 30 damage
 
-%% on_enemy_death(+Enemy, +DeathMsg)
-%  Consolidates death handling: display message, clear throw_used, remove from map, recharge weapon.
+% Handle enemy death: show message, remove from map, recharge weapon.
 on_enemy_death(Enemy, DeathMsg) :-
     highlight_text("═══════════════════════════════════"),
     highlight_text(DeathMsg),
@@ -1096,15 +786,11 @@ on_enemy_death(Enemy, DeathMsg) :-
     ( location(Enemy, R) -> retract(location(Enemy, R)) ; true ),
     recharge_weapon.
 
-%% format_damage(+Before, +After, -Message)
-%  Format a health change message.
+% helper for formatting damage messages consistently across combat interactions.
 format_damage(Before, After, Msg) :-
     format(atom(Msg), "~w health: ~w -> ~w", [Before, After]).
 
-%% hiss_attack_line(+DisplayName, -Line)
-%  Generates a random attack flavour message from the pool.
-%  Each template contains '~w' placeholder for the enemy's display name.
-%  Used to create varied enemy attack announcements during combat.
+% Generate a random attack line for enemy attacks
 hiss_attack_line(Name, Line) :-
     Templates = [
         "~w lashes out!",
@@ -1120,26 +806,13 @@ hiss_attack_line(Name, Line) :-
     random_member(Template, Templates),
     format(string(Line), Template, [Name]).
 
-%% miss_shot/0 — 10% chance: shot goes wide, consumes 1 charge, enemy still retaliates
+% 10 percent chance to miss a shot, which reduces weapon charge by 1 and shows a misfire message.
 miss_shot :-
     normal_text("Service Weapon misfire!"),
     weapon_charge(jesse, C),
     NewC is max(0, C - 1),
     retractall(weapon_charge(jesse, _)),
     assertz(weapon_charge(jesse, NewC)).
-
-/* --- Hiss Spawn (dynamically spawned in upper_hall when service_weapon is taken) ---
-   HP: 30  |  Player damage: 10/shot  |  Retaliates: 8 damage
-   Three clauses (ordered, each cut):
-     1. No weapon yet  → explain and fail gracefully.
-     2. Weapon + alive → calculate damage + crit, fire, then enemy_turn_spawn.
-     3. Already dead   → report and stop.
-   
-   The multi-clause pattern allows clean separation:
-     • Clause 1: handles pre-weapon state
-     • Clause 2: handles active combat (main logic)
-     • Clause 3: handles already-defeated state
-     Each clause has a cut (!) to prevent backtracking once a condition matches.         --- */
 
 combat(jesse, hiss_spawn) :-
     \+ has(jesse, service_weapon), !,
@@ -1163,11 +836,6 @@ combat(jesse, hiss_spawn) :-
 combat(jesse, hiss_spawn) :- !,
     normal_text("The Hiss Spawn is already dead.").
 
-%% enemy_turn_spawn
-%  Hiss Spawn's turn to act: either die (if defeated) or attack.
-%  If defeated: show death message, remove from map, recharge player's weapon, drop health kit.
-%  If alive: generate random attack message and deal 8 damage to Jesse.
-%  The cut at the end prevents fallthrough to other clauses.
 enemy_turn_spawn :-
     ( health(hiss_spawn, HP), HP =< 0
     -> on_enemy_death(hiss_spawn, "The Hiss Spawn dissolves into static.")
@@ -1209,12 +877,6 @@ enemy_turn_guard :-
     ), !.
 enemy_turn_guard.
 
-/* --- Hiss Guard B (starts in containment_hall) ---
-   HP: 30  |  Player damage: 10/shot  |  Retaliates: 25 damage
-   Two clauses (ordered, each cut):
-     1. Weapon + alive → fire, then enemy_turn_guard_b.
-     2. Already dead   → report and stop.                          --- */
-
 combat(jesse, hiss_guard_b) :-
     location(jesse, _), location(hiss_guard_b, _),
     has(jesse, service_weapon), health(hiss_guard_b, HP), HP > 0, !,
@@ -1241,12 +903,6 @@ enemy_turn_guard_b :-
     ), !.
 enemy_turn_guard_b.
 
-/* --- Hiss Brute (starts in atrium) ---
-   HP: 50  |  Player damage: 10/shot  |  Retaliates: 30 damage
-   Two clauses (ordered, each cut):
-     1. Weapon + alive → fire, then enemy_turn_brute.
-     2. Already dead   → report and stop.                          --- */
-
 combat(jesse, hiss_brute) :-
     location(jesse, _), location(hiss_brute, _),
     has(jesse, service_weapon), health(hiss_brute, HP), HP > 0, !,
@@ -1272,13 +928,6 @@ enemy_turn_brute :-
        take_enemy_hit(20)
     ), !.
 enemy_turn_brute.
-
-/* --- Hiss Boss / Warden (starts in solitary) ---
-   HP: 100  |  Player damage: 15/shot  |  Retaliates: 35 damage
-   On death: drops dylans_cell_key and tips the player.
-   Two clauses (ordered, each cut):
-     1. Weapon + alive → fire, then enemy_turn_boss.
-     2. Already dead   → report and stop.                          --- */
 
 combat(jesse, hiss_boss) :-
     location(jesse, _), location(hiss_boss, _),
@@ -1309,16 +958,6 @@ enemy_turn_boss :-
        take_enemy_hit(23)
     ), !.
 enemy_turn_boss.
-
-/* --- Hiss Infection (dynamically spawned, atom hiss_infection_N) ---
-   HP: 30  |  Player damage: 10/shot  |  Retaliates: 20 damage
-   Entity atom is matched via atom_concat(hiss_infection_, _, Enemy).
-   On death: clears hiss_infected(Room) flag and drops a health kit
-   via on_hiss_defeated/1.
-   Three clauses (ordered, each cut):
-     1. Weapon + alive → fire, then enemy_turn_infection.
-     2. Known infection atom, not alive → report.
-     3. Fallback combat clause (any non-matched enemy).            --- */
 
 combat(jesse, Enemy) :-
     atom_concat(hiss_infection_, _, Enemy),
@@ -1353,14 +992,6 @@ enemy_turn_infection(Enemy, Room) :-
        take_enemy_hit(20)
     ), !.
 enemy_turn_infection(_, _).
-
-/* ============================================
-      THROW ATTACK  —  throw_combat(Jesse, Enemy)
-      Special single-use attack using Object of Power.
-      Does 3x base damage (30 for most enemies, 45 for hiss_boss).
-      Marks the artifact as used for this combat encounter.
-      Always hits (no miss chance) and bypasses most defenses.
-*/
 
 throw_combat(jesse, hiss_spawn) :-
     location(jesse, Room), location(hiss_spawn, Room),
@@ -1444,32 +1075,8 @@ throw_combat(jesse, Enemy) :-
 throw_combat(_, _) :-
     normal_text("You can't throw at that.").
 
-%% Fallback combat clause — catches attack commands with no valid target
-%  This is the catch-all clause that matches when none of the specific enemy
-%  combat clauses matched. It prevents error messages and gracefully informs
-%  the player that there's nothing to attack.
 combat(_, _) :-
     normal_text("There's nothing to attack here.").
-
-/* ============================================
-      SKIP TURN  —  skip_turn/0
-      Recharges weapon by 1 and lets the
-      highest-priority live enemy retaliate.
-
-      Priority order (highest first) ensures
-      the most dangerous enemy always retaliates:
-        hiss_boss  →  hiss_brute  →  hiss_guard_b
-        →  hiss_spawn  →  hiss_infection_N  →  hiss_guard (fallback)
-
-      Only usable when a live enemy is present (clause 1 cuts on success).
-      If the weapon is already at max charge,
-      the player is told but the enemy still
-      retaliates — so use with care: a charge-full opponent gets a free turn.
-      
-      The if-then-else checks charge < max, increments if possible,
-      then examines enemies in priority order. The first matching
-      location/health/alive check triggers that enemy's turn predicate.
-   ============================================ */
 
 skip_turn :-
     location(jesse, Room),
@@ -1497,15 +1104,7 @@ skip_turn :-
 skip_turn :-
     normal_text("You can only skip your turn during combat.").
 
-/* ============================================
-      HISS INFECTION SYSTEM
-      After the Service Weapon is obtained,
-      rooms have a 20% chance to become infected
-      each time Jesse enters them.
-      Defeated infections drop a health kit.
-   ============================================ */
-
-%  Rooms eligible for random Hiss infection, a.k.a random enemy spawns
+% Rooms eligible for random Hiss infection, a.k.a random enemy spawns
 infectable_room(lobby).
 infectable_room(atrium).
 infectable_room(rejuvenation_room).
@@ -1531,28 +1130,16 @@ infectable_room(food_vendor).
 infectable_room(secret_chamber).
 infectable_room(death_room).
 
-%% room_enemy_free(+Room)
 %  True if no non-NPC entities are currently in Room.
 room_enemy_free(Room) :-
     \+ (location(E, Room), E \= jesse, E \= ahti, E \= vendor).
 
-%% next_hiss_id(-Id)
-%  Generate a unique atom for a new infection entity (e.g. hiss_infection_3).
-%  Counts the number of existing hiss_infected(Room) facts and uses that
-%  count as a suffix. This ensures each dynamically spawned entity has
-%  a distinct atom name for tracking health, location, etc.
+% get next hiss id
 next_hiss_id(Id) :-
     aggregate_all(count, hiss_infected(_), N),
     atomic_list_concat([hiss_infection_, N], Id).
 
-%% infect_room(+Room)
-%  Spawn a new Hiss infection entity in Room and alert the player.
-%  Sequence:
-%    1. Guard: fail if the room is already infected.
-%    2. Assert hiss_infected(Room) flag to mark the room as infected.
-%    3. Generate unique infection entity ID (e.g., hiss_infection_0).
-%    4. Create location, health, and initial appearance facts for that entity.
-%    5. Alert player with a distinct message depending on whether Jesse is in the room.
+% infects a room with a new Hiss infection entity, sets its health, and announces the infection with a custom message based on whether Jesse is present.
 infect_room(Room) :-
     \+ hiss_infected(Room),
     assertz(hiss_infected(Room)),
@@ -1566,32 +1153,15 @@ infect_room(Room) :-
     ),
     note_text(Alert).
 
-%% maybe_true(+Prob)
-%  Succeeds with probability Prob (0.0–1.0).
 maybe_true(Prob) :-
     random(R), R < Prob.
 
-%% maybe_infect(+Room)
-%  20% chance to infect an eligible, enemy-free room.
-%  Guards prevent re-infection and ensure the room is empty of combat entities:
-%    • hiss_infected(Room) is already set → do nothing.
-%    • room_enemy_free(Room) is false → do nothing.
-%    • random roll fails (80% chance) → do nothing.
-%  If all guards pass, call infect_room/1 to spawn the infection.
 maybe_infect(Room) :-
     ( \+ hiss_infected(Room), room_enemy_free(Room), maybe_true(0.2)
     -> infect_room(Room)
     ;  true
     ).
 
-%% infection_check(+Room)
-%  Called every time Jesse enters a room via the move/3 predicate.
-%  Central infection dispatch: handles three scenarios in order:
-%    1. Death_room: instant game over (some doors should never be opened).
-%    2. weapon_just_taken flag: suppress infection on the turn weapon is picked up
-%       (prevents cheap ambush on the same turn you get the weapon).
-%    3. Normal case: if Jesse has service_weapon and room is infectable,
-%       maybe_infect/1 handles the 20% random infection roll.
 infection_check(Room) :-
     ( Room = death_room
     -> assertz(game_over),
@@ -1608,9 +1178,7 @@ infection_check(Room) :-
     ; true
     ).
 
-%% on_hiss_defeated(+Room)
-%  When an infection entity is killed, clear the infected flag
-%  and spawn a health kit reward.
+% spawn health kit on infected hiss death, for balance and to encourage combat engagement instead of avoidance. 
 on_hiss_defeated(Room) :-
     ( hiss_infected(Room)
     -> retract(hiss_infected(Room)),
@@ -1621,43 +1189,6 @@ on_hiss_defeated(Room) :-
     ; true
     ).
 
-/* ============================================
-      MOVEMENT  —  move(+Actor, +Dir, -Result)
-      Result is either `moved` or `blocked`.
-
-      Clauses are STRICTLY ORDERED — Prolog tries them
-      top to bottom and the FIRST matching cut
-      clause wins.  The order is carefully controlled:
-
-        1. Street wandering flavour
-           Catches any invalid direction while
-           Jesse is on the street and delegates
-           to funny_outside_message/0 for comedic output.
-
-        2. Combat block
-           If a live enemy is present, all exits
-           are sealed until the enemy is defeated.
-           Critical for game balance: prevents escape.
-
-        3. Locked-door messages (specific rooms)
-           Custom "you need a key" messages for:
-             lobby → upper_hall  (requires keys)
-             lobby → lab77       (requires lab77_key)
-             janitor_hall → east (requires service_weapon)
-             solitary → east     (requires dylans_cell_key)
-           These come BEFORE standard movement so custom messages
-           override generic "You can't go that way." fails.
-
-        4. Standard movement
-           Uses connected/3 to find the target
-           room, updates location/2, and runs
-           infection_check/1 for new room state.
-
-        5. Dead-end fallback
-           Prints "You can't go that way."
-           Only reached if all guards and connections fail.
-   ============================================ */
-
 %% Street wandering — flavour messages instead of silent failure
 move(jesse, Dir, blocked) :-
     location(jesse, street),
@@ -1665,9 +1196,6 @@ move(jesse, Dir, blocked) :-
     \+ connected(street, _, Dir), !,
     funny_outside_message.
 
-%% Block movement while a live enemy is in the room
-%  Critical combat guard: prevents fleeing mid-combat.
-%  Lists all live enemies in the room as a reminder of who is still threatening.
 move(jesse, _, blocked) :-
     location(jesse, Room),
     living_enemy_here(Room), !,
@@ -1712,12 +1240,7 @@ move(Actor, Dir, moved) :-
 move(_, _, blocked) :-
     normal_text("You can't go that way.").
 
-/* ============================================
-      FUNNY OUTSIDE MESSAGES
-      Escalating flavour text when Jesse tries
-      to wander away from the Bureau entrance.
-   ============================================ */
-
+% Messages for trying to escape the game world by wandering south from the street
 outside_message(1) :-
     normal_text("You take a few steps away… then stop. Something feels wrong."),
     normal_text("The building hums louder, like it's watching you.").
@@ -1733,7 +1256,6 @@ outside_message(4) :-
 outside_message(_) :-
     normal_text("You cannot escape the Oldest House. Just go inside.").
 
-
 % if player repeatedly tries to wander south from start, escalate the message with each attempt
 funny_outside_message :-
     outside_attempts(N),
@@ -1742,15 +1264,7 @@ funny_outside_message :-
     assertz(outside_attempts(N1)),
     outside_message(N1).
 
-/* ============================================
-      ITEMS — list, take, look at, unlock, shield
-      Items are stored as object(Item, Room) facts
-      and transferred to has(jesse, Item) on pickup.
-   ============================================ */
-
-%% list_items(+Room)
-%  Print all items currently on the floor in Room.
-%  Shows nothing if the room is empty.
+%  Print all items currently on the floor in Room, shows nothing if there are no items, and gives a reminder of the 'take' command if there are.
 list_items(Room) :-
     findall(I, object(I, Room), Items),
     ( Items = [] -> true
@@ -1762,11 +1276,6 @@ list_items(Room) :-
       writeln("")
     ).
 
-%% take_item(+Item)
-%  Case-insensitive item pickup — matches the atom the player typed
-%  against all objects in the current room, tolerating naive plurals
-%  (e.g. "health_kits" → health_kit).
-%  Delegates to apply_take/2 for item-specific pickup effects.
 %  Prints an error if no matching item is found in the room.
 take_item(Item) :-
     location(jesse, Room),
@@ -1784,25 +1293,7 @@ take_item(Item) :-
     format(atom(Msg), "There's no ~w here to take.", [Item]),
     normal_text(Msg).
 
-%% apply_take(+Item, +Room)
-%  Item-specific pickup effects. Clauses are strictly ordered;
-%  Prolog will use the FIRST matching clause.
-%  
-%  Item classes:
-%    • Stat upgrades (health_upgrade, charge_upgrade):
-%      Increase permanent caps by fixed amounts and restore some current value.
-%      Cannot exceed the new cap.
-%    • sense: Grants persistent sense_active flag; subsequent rooms
-%      will show warnings for nearby enemies via show_sense/1.
-%    • health_kit: Instant heal to max; no-op if already full.
-%    • service_weapon: Branch point — spawns hiss_guard in upper_hall,
-%      hiss_spawn in lobby, and sets weapon_just_taken flag to suppress
-%      infection check on this same turn (grace turn).
-%    • weapon_form: Activates weapon_form_active flag.
-%      All subsequent attacks deal 3× damage but cost 3 charges per shot.
-%    • Generic fallback: Just move from object/2 to has/2 with a message.
-%  
-%  Each clause retract()s the object and assert()s the has() fact.
+% health upgrade take application — permanently raises max health by 5 and restores 5 HP (cannot exceed new max).
 apply_take(health_upgrade, Room) :-
     max_health(jesse, MaxHP),
     retract(object(health_upgrade, Room)),
@@ -1817,8 +1308,7 @@ apply_take(health_upgrade, Room) :-
     format(atom(M), "Max health increased from ~w to ~w/~w", [MaxHP, NewHP, NewMaxHP]),
     normal_text(M).
 
-%  charge_upgrade — permanently raises max weapon charge by 2
-%                   and restores 2 charges (cannot exceed new max).
+% charge upgrade take application — permanently raises max weapon charge by 2 and restores 2 charge (cannot exceed new max).
 apply_take(charge_upgrade, Room) :-
     max_weapon_charge(jesse, MaxCharge),
     retract(object(charge_upgrade, Room)),
@@ -1839,8 +1329,7 @@ apply_take(sense, Room) :-
     assertz(has(jesse, sense)),
     assertz(sense_active),
     highlight_text("You pick up the resonance sensor. It pulses once in your hand."),
-    normal_text("A faint awareness settles at the edge of your perception — \
-a low hum that sharpens whenever something hostile is nearby."),
+    normal_text("A faint awareness settles at the edge of your perception — \na low hum that sharpens whenever something hostile is nearby."),
     tip_text("Sense active: you will be warned of enemies in adjacent rooms.").
 
 %  health_kit — restores HP to max; does nothing if already full.
@@ -1856,9 +1345,7 @@ apply_take(health_kit, Room) :-
        normal_text(M)
     ).
 
-%  service_weapon — equips the weapon, spawns hiss_guard in upper_hall
-%                   with 30 HP, and sets weapon_just_taken to skip the
-%                   infection check on this same turn.
+% logic when service weapopn is taken: adds to inventory, spawns the Hiss Guard and Hiss Spawn in their respective rooms, and suppresses infection check for the turn to avoid overwhelming the player with simultaneous combat and infection.
 apply_take(service_weapon, Room) :-
     retract(object(service_weapon, Room)),
     assertz(has(jesse, service_weapon)),
@@ -1872,8 +1359,7 @@ apply_take(service_weapon, Room) :-
     assertz(weapon_just_taken),  % suppress infection check this turn
     highlight_text("A distant screech echoes through the building...").
 
-%  weapon_form — merges paranatural resonance into the Service Weapon;
-%               triples damage but costs 3 weapon charges per shot.
+% when weapon form is taken, add to inventory, set weapon_form_active, and show special messages about the power of the weapon and its new charge cost.
 apply_take(weapon_form, Room) :-
     retract(object(weapon_form, Room)),
     assertz(has(jesse, weapon_form)),
@@ -1883,23 +1369,16 @@ apply_take(weapon_form, Room) :-
     normal_text("Hungrier. You can feel its appetite."),
     highlight_text("Weapon Form absorbed. Damage ×3. Each shot now costs 3 charges.").
 
-%  Generic — no special logic; just removes object and adds to inventory.
+% Generic take message
 apply_take(Item, Room) :-
     retract(object(Item, Room)),
     assertz(has(jesse, Item)),
     format(atom(M), "You take the ~w.", [Item]),
     normal_text(M).
 
-%% look_at(+Obj)
-%  Examine a specific object for item-specific descriptions.
-%  Most items have no special description and fall through to the
-%  generic "nothing special" response.
-%  The cat_statue is special: its description changes depending on
-%  whether Jesse is carrying it, if it's on the plinth, or if neither.
 look_at(cat_statue) :- !,
     ( has(jesse, cat_statue)
-    -> normal_text("A small stone cat. It sits perfectly still in your hands. \
-Its eyes seem to follow you. You get the sense it wants to be somewhere specific.")
+    -> normal_text("A small stone cat. It sits perfectly still in your hands. \nIts eyes seem to follow you. You get the sense it wants to be somewhere specific.")
     ;  location(jesse, Room),
        ( object(cat_statue, Room) ; cat_statue_placed, Room = atrium )
     -> normal_text("A small stone cat rests on the plinth. The floor hums softly beneath it.")
@@ -1910,11 +1389,6 @@ look_at(Obj) :-
     format(atom(Msg), "You examine the ~w closely, but see nothing special.", [Obj]),
     normal_text(Msg).
 
-%% unlock_item(+Item, +Code)
-%  Unlock containers with codes:
-%  • locked_box (food_vendor): code "bureau47" → lab77_key
-%  • locked_suitcase (lobby): code "1200" → +20 max_health
-%  Called with Code = none when player types 'unlock item' without code.
 unlock_item(Item, Code) :-
     atom_string(Item, S), string_lower(S, SL), atom_string(ItemAtom, SL),
     ( ItemAtom = locked_suitcase
@@ -1928,8 +1402,7 @@ unlock_item(Item, Code) :-
              NewMax is OldMax + 20,
              retractall(max_health(jesse, _)),
              assertz(max_health(jesse, NewMax)),
-             highlight_text("You unlock the suitcase and find Bureau health supplements! \
-Your maximum health has permanently increased by 20!"),
+             highlight_text("You unlock the suitcase and find Bureau health supplements! \nYour maximum health has permanently increased by 20!"),
              format(atom(NewMaxMsg), "New Max Health: ~w", [NewMax]),
              highlight_text(NewMaxMsg),
              health(jesse, CurrentHP),
@@ -1958,13 +1431,6 @@ Your maximum health has permanently increased by 20!"),
        color_ln(red, ErrS)
     ).
 
-%% use_shield
-%  Activate the paranatural shield for one hit absorption.
-%  Guards (in order):
-%    • Jesse doesn't own it yet       → inform player.
-%    • Shield is already active       → remind player.
-%    • No live enemy in current room  → discourage wasting it.
-%    • Otherwise                      → assert shield_active.
 use_shield :-
     ( \+ has(jesse, shield)
     -> normal_text("You don't have a shield to use.")
@@ -1977,36 +1443,21 @@ use_shield :-
        tip_text("The shield will absorb the next enemy hit, then dissipate.")
     ).
 
-/* ============================================
-      MAP DISPLAY
-      ASCII relative map centred on Jesse's
-      current room; shows N/S/E/W neighbours
-      with locked status where applicable.
-   ============================================ */
-
-%% map_label_center(+Room, -Label)
-%  Format the current room as >room< (without brackets; brackets added in show_map).
+% Format the current room as >room< (without brackets; brackets added in show_map).
 map_label_center(Room, Label) :-
     format(atom(Label), ">~w<", [Room]).
 
-%% label_with_status(+Name, +Status, -Label)
-%  Create a label like [name] or [name] (locked) with bold name for visibility.
-%  Uses bold cyan (\e[1;36m) to maintain color while adding bold.
 label_with_status(Name, locked, Label) :- !,
     format(atom(Label), "[\e[1;36m~w\e[36m] (locked)", [Name]).
+
 label_with_status(Name, _, Label) :-
     format(atom(Label), "[\e[1;36m~w\e[36m]", [Name]).
 
-%% dir_equiv(+Cardinal, ?ConnDir)
-%  Map canonical directions to their connection aliases.
 dir_equiv(north, north). dir_equiv(north, enter).
 dir_equiv(south, south). dir_equiv(south, exit).
 dir_equiv(east,  east).
 dir_equiv(west,  west).
 
-%% neighbor(+Current, +Cardinal, -DisplayNext, -Status)
-%  Find the neighbouring room in the given cardinal direction.
-%  Returns Status = open | locked.
 neighbor(Current, Cardinal, DisplayNext, Status) :-
     dir_equiv(Cardinal, ConnDir),
     ( connected(Current, Next, ConnDir)
@@ -2022,28 +1473,22 @@ neighbor(Current, Cardinal, DisplayNext, Status) :-
     ;  fail
     ).
 
-%% spaces(+N, -Atom)
-%  Build an atom of N space characters.
 spaces(N, S) :-
     length(Cs, N),
     maplist(=(0' ), Cs),
     atom_chars(S, Cs).
 
 :- multifile map_line/2.
-%% map_line(+Fmt, +Args)
-%  Format and print a single map line in cyan.
+
 map_line(Fmt, Args) :-
     format(string(S), Fmt, Args),
     map_text(S).
 
-%% center_start(+WLabel, -Start)
-%  Calculate the column offset for the center room given the west label width.
 center_start("",     0) :- !.
 center_start(WLabel, Start) :-
     atom_length(WLabel, WL),
     Start is WL + 5.
 
-%% show_map(+Current)
 %  Render the full relative map for the current room.
 show_map(Current) :-
     map_label_center(Current, CenterBase),
@@ -2052,7 +1497,6 @@ show_map(Current) :-
     ( neighbor(Current, east,  E, ES) -> label_with_status(E, ES, ELabel) ; ELabel = "" ),
     ( neighbor(Current, west,  W, WS) -> label_with_status(W, WS, WLabel) ; WLabel = "" ),
 
-    % For length calculations, strip ANSI codes from formatted labels to get base lengths
     ( NLabel = "" -> NBase = "" ; re_replace('\e\\[[0-9;]*m', '', NLabel, NBase) ),
     ( SLabel = "" -> SBase = "" ; re_replace('\e\\[[0-9;]*m', '', SLabel, SBase) ),
     ( WLabel = "" -> WBase = "" ; re_replace('\e\\[[0-9;]*m', '', WLabel, WBase) ),
@@ -2060,13 +1504,11 @@ show_map(Current) :-
     % Bold the center location name with brackets
     format(atom(Center), "[\e[1;36m~w\e[36m]", [CenterBase]),
 
-    % For arrow calculation, calculate center of the location name itself
     atom_length(CenterBase, BaseLen),
     ( WBase = ""
-    -> % No west label: [CenterBase] starts at position 1, "[" is pos 1, name starts at pos 2
+    ->
        ArrowCol is 1 + (BaseLen // 2)
     ;  atom_length(WBase, WL),
-       % West label (WL) + " <-- " (5) + "[" (1) = WL + 6, then add half of location length
        ArrowCol is WL + 6 + (BaseLen // 2)
     ),
     spaces(ArrowCol, ArrowPad),
@@ -2107,29 +1549,6 @@ show_map(Current) :-
     map_text(LocMsg),
     map_text("═════════════════════════════════════════════════════════════").
 
-/* ============================================
-      DESCRIBE CURRENT ROOM
-      Called on entry and with 'look'.
-      Renders map, description, notes, thoughts,
-      occupants, items, then enemy announcements.
-   ============================================ */
-
-%% describe_here
-%  Render the FULL room state: map, description, lore,
-%  NPCs, items, enemies, and sense warnings.
-%  
-%  Sequence:
-%    1. show_map: render relative cardinal map.
-%    2. description: atmospheric prose about the room.
-%    3. Tip (if food_vendor): hint for puzzle.
-%    4. list_notes: unread lore items.
-%    5. list_thoughts: Jesse's inner monologue options.
-%    6. list_occupants: friendly NPCs in the room.
-%    7. list_items: objects lying around for pickup.
-%    8. announce_enemies: live Hiss enemies with combat tip.
-%    9. show_sense: if sense_active, warn about adjacent enemies.
-%  
-%  Called whenever Jesse enters a room (from move/3) and on 'look' command.
 describe_here :-
     location(jesse, Room), !,
     show_map(Room),
@@ -2147,9 +1566,6 @@ describe_here :-
     announce_enemies(Room),
     show_sense(Room).
 
-%% show_sense(+Room)
-%  If sense_active, scan all adjacent rooms for live enemies
-%  and warn the player about each one found.
 show_sense(Room) :-
     sense_active, !,
     findall(Next, (
@@ -2167,16 +1583,6 @@ show_sense(Room) :-
     ).
 show_sense(_).
 
-%% list_occupants(+Room)
-%  Show friendly NPCs in the room with a header and talk tip.
-%  Hiss enemies are handled separately by announce_enemies/1.
-%  
-%  Process:
-%    1. Find all non-jesse entities in the room.
-%    2. Filter to visible_npc/1 (friendly NPCs always visible;
-%       hiss enemies only visible with service_weapon).
-%    3. Exclude any Hiss enemies from the visible list.
-%    4. Print name of each friendly with a 'talk' instruction.
 list_occupants(Room) :-
     findall(N, (location(N, Room), N \= jesse), Others),
     ( Others = [] -> true
@@ -2196,10 +1602,7 @@ announce_friendly_npc(Name) :-
     format(string(S), "  ~w", [Name]),
     note_text(S).
 
-/* ============================================
-      HELP / STATUS COMMANDS
-   ============================================ */
-
+% output when help command is used
 show_help :-
     map_text("=== COMMANDS ==="),
     normal_text("Movement:  go north | go south | go east | go west | enter"),
@@ -2256,47 +1659,6 @@ show_quest :-
     normal_text("Find your missing brother, Dylan by exploring the inside of The Oldest House."),
     highlight_text("═════════════").
 
-/* ============================================
-      PARSER  —  parse(+Tokens, -Command)
-      Maps a list of lowercase atom tokens
-      (produced by the game loop / server handler)
-      to a command term consumed by dispatch/1.
-      
-      Design notes:
-      • Each clause handles a specific command pattern.
-      • All output directives (map_text, etc.) are
-        abstracted away from this module.
-      • Grammar is declarative: patterns are listed,
-        not written as grammar rules.
-      • If no clause matches, parse/2 fails;
-        the caller (game_loop) handles the failure.
-
-      Grammar summary:
-        Movement : go/move/walk + Dir
-                   enter | go inside | go in
-        Look     : look | look at <Obj>
-        Map      : map | show map
-        Talk     : talk ahti | talk vendor | talk dylan
-        Attack   : attack | attack <enemy>
-        Take     : take <Item> | pick up <Item>
-        Inventory: inventory | inv | i
-        Read     : read | read note | read notes
-                   read <Name> | read note <Name>
-        Think    : think | think <Name>
-        Place    : place <Item> | put <Item> down
-                   put down <Item>
-        Unlock   : unlock <Item> | unlock <Item> <Code>
-        Shield   : shield | use shield | activate shield
-        Skip     : skip | wait
-        Status   : health | status | charge
-        Restart  : restart | new game | start over
-        Misc     : help | quit
-
-      Any token list that doesn't match any clause
-      causes parse/2 to fail; the caller handles that
-      by printing "I don't understand."
-   ============================================ */
-
 parse([go,   Dir], go(Dir)).
 parse([move, Dir], go(Dir)).
 parse([walk, Dir], go(Dir)).
@@ -2304,17 +1666,14 @@ parse([up],    go(north)).
 parse([down],  go(south)).
 parse([left],  go(west)).
 parse([right], go(east)).
-
 parse([look],           look).
 parse([look, at, Obj],  look_at(Obj)).
-
 parse([talk, ahti],       talk(ahti)).
 parse([talk, vendor],     talk(vendor)).
 parse([talk, dylan],      talk(dylan)).
 parse([talk, drenchtov],  talk(drenchtov)).
 parse([talk, hartwell],   talk(hartwell)).
 parse([talk, okoro],      talk(okoro)).
-
 parse([attack],               attack).
 parse([a],                    attack).
 parse([attack, hiss_spawn],   attack(hiss_spawn)).
@@ -2322,18 +1681,14 @@ parse([attack, hiss_guard],   attack(hiss_guard)).
 parse([attack, hiss_guard_b], attack(hiss_guard_b)).
 parse([attack, hiss_brute],   attack(hiss_brute)).
 parse([attack, hiss_boss],    attack(hiss_boss)).
-
 parse([throw],       throw).
 parse([hurl],        throw).
 parse([unleash],     throw).
-
 parse([take, Item],     take(Item)).
 parse([pick, up, Item], take(Item)).
-
 parse([inventory], inventory).
 parse([inv],       inventory).
 parse([i],         inventory).
-
 parse([quit],   quit).
 parse([help],   help).
 parse([health], health).
@@ -2343,63 +1698,30 @@ parse([quest],  quest).
 parse([quests], quest).
 parse([skip],   skip).
 parse([wait],   skip).
-
 parse([enter],      go(enter)).
 parse([go, inside], go(enter)).
 parse([go, in],     go(enter)).
-
 parse([read],              read(all)).
 parse([read, note],        read(all)).
 parse([read, notes],       read(all)).
 parse([read, Name],        read(Name)).
 parse([read, note,  Name], read(Name)).
 parse([read, notes, Name], read(Name)).
-
 parse([map],       map).
 parse([show, map], map).
-
 parse([unlock, Item],       unlock(Item, none)).
 parse([unlock, Item, Code], unlock(Item, Code)).
-
 parse([think],       think(here)).
 parse([think, Name], think(Name)).
-
 parse([place, Item],     place(Item)).
 parse([put, Item, down], place(Item)).
 parse([put, down, Item], place(Item)).
-
 parse([restart],     restart).
 parse([new, game],   restart).
 parse([start, over], restart).
-
 parse([shield],           shield).
 parse([use, shield],      shield).
 parse([activate, shield], shield).
-
-/* ============================================
-      COMMAND DISPATCH  —  dispatch(+Command)
-      Executes a command term produced by parse/2.
-
-      Architecture:
-      • Each clause is deterministic (cut after
-        the first match) to prevent backtracking
-        into later clauses after a command runs.
-      • All state mutations (location changes, health
-        updates, item drops) happen in specific
-        predicate definitions, not here.
-      • This predicate is purely a router/dispatcher.
-
-      Special handling:
-      • dispatch(go(Dir)): navigation handler
-        → calls move/3 then re-renders room if successful.
-        → skips rendering if game_over (death trap rooms).
-        → move/3 handles all locks, combat blocks, etc.
-      • dispatch(attack): resolves target automatically
-        by checking living_enemy_here/1 and testing
-        enemies in priority order:
-          boss > brute > guard_b > guard > spawn > infection.
-      • dispatch(quit): graceful exit message.
-   ============================================ */
 
 dispatch(look)          :- !, describe_here.
 dispatch(look_at(Obj))  :- !, look_at(Obj).
@@ -2423,7 +1745,6 @@ dispatch(talk(dylan))      :- !, talk_to(dylan).
 dispatch(talk(drenchtov))  :- !, talk_to(drenchtov).
 dispatch(talk(hartwell))   :- !, talk_to(hartwell).
 dispatch(talk(okoro))      :- !, talk_to(okoro).
-
 dispatch(take(Obj))          :- !, take_item(Obj).
 dispatch(read(Name))         :- !, read_notes(Name).
 dispatch(think(Name))        :- !, think_thought(Name).
@@ -2434,13 +1755,6 @@ dispatch(skip)               :- !, skip_turn.
 dispatch(restart)            :- !, restart_game.
 dispatch(quit)               :- !, normal_text("You step back from the House.").
 
-%% Generic attack — targets highest-priority live enemy in the room
-%  This clause handles 'attack' with no specific target.
-%  Enemy priority ensures the most dangerous foe is targeted first:
-%    hiss_boss > hiss_brute > hiss_guard_b > hiss_guard > hiss_spawn > hiss_infection_*
-%  The chain of if-then-else checks enemies in order; the first one found
-%  with HP > 0 triggers its combat clauses.
-%  Falls back to "nothing to attack" if no enemy is present or all are dead.
 dispatch(attack) :- !,
     location(jesse, Room),
     ( living_enemy_here(Room)
@@ -2483,32 +1797,11 @@ dispatch(attack(hiss_guard_b)) :- !, combat(jesse, hiss_guard_b).
 dispatch(attack(hiss_brute))   :- !, combat(jesse, hiss_brute).
 dispatch(attack(hiss_boss))    :- !, combat(jesse, hiss_boss).
 
-%% Fallback — unknown command term (should not normally be reached)
+%% handle unknown commands with a generic message
 dispatch(Cmd) :-
     format("I don't know how to handle: ~w~n", [Cmd]).
 
-/* ============================================
-      GAME LOOP  —  game_loop/0
-      The main read-eval-print loop for standalone
-      play.  Each iteration:
-        1. Prints "> " prompt.
-        2. Reads a line from user_input.
-        3. Lowercases and splits into tokens.
-        4. Cleans each token with clean_token_smart/2.
-        5. Converts strings to atoms for parsing.
-        6. If game_over is set, only restart/quit
-           are accepted; all other input shows the
-           death message and loops.
-        7. Otherwise attempts parse/2; on failure
-           prints "I don't understand." and loops.
-        8. On 'quit' the loop terminates; otherwise
-           tail-recurses to process next command.
-           
-      The game_over guard (step 6) ensures dead
-      players cannot issue movement or combat commands,
-      preserving game-over state until restart or quit.
-   ============================================ */
-
+% read player input, parse it, and dispatch the resulting command. Loops until quit or death.
 game_loop :-
     write("> "),
     flush_output(user_output),
@@ -2578,24 +1871,7 @@ prologue :-
     retractall(last_color(_)),
     assertz(last_color(default)).
 
-/* ============================================
-      GAME START  —  start/0
-      Entry point called by initialization/2 in
-      standalone mode.  
-      
-      Sequence:
-        1. Get Jesse's starting room (street).
-        2. Show relative map.
-        3. Print opening narrative.
-        4. Offer tips for new players.
-        5. Describe the room fully (description,
-           notes, thoughts, occupants, items).
-        6. Enter the main game_loop.
-           
-      After this predicate, the game is interactive:
-      the game_loop reads commands until quit or death.
-   ============================================ */
-
+% initialization predicate, sets up the game state and starts the main game loop. Called automatically when the program is run.
 start :-
     % Ensure terminal is in canonical mode with proper echo settings
     set_stream(user_input, alias(user_input)),
@@ -2618,10 +1894,8 @@ start :-
     flush_output,
     game_loop.
 
-
 % predicate to reset the game to the initial state, allowing the player to start over after death or at any time.
 restart_game :-
-    % --- Clear all runtime state ---
     retractall(game_over),
     retractall(health_kit_tip_shown),
     retractall(attack_tip_shown),
@@ -2641,8 +1915,6 @@ restart_game :-
     retractall(read_note(_, _)),
     retractall(outside_attempts(_)),
     retractall(object(_, _)),
-
-    % --- Re-assert initial locations ---
     assertz(location(jesse,        street)),
     assertz(location(ahti,         janitor_hall)),
     assertz(location(drenchtov,    utility_bay)),
@@ -2652,8 +1924,6 @@ restart_game :-
     assertz(location(hiss_boss,    solitary)),
     assertz(location(vendor,       food_vendor)),
     assertz(location(dylan,        dylans_cell)),
-
-    % --- Re-assert health and stats ---
     assertz(health(jesse,        100)),
     assertz(max_health(jesse,    100)),
     assertz(health(hiss_brute,    50)),
@@ -2662,8 +1932,6 @@ restart_game :-
     assertz(weapon_charge(jesse,     10)),
     assertz(max_weapon_charge(jesse, 10)),
     assertz(outside_attempts(0)),
-
-    % --- Re-assert item placement ---
     assertz(object(keys,           lobby)),
     assertz(object(service_weapon, directors_office)),
     assertz(object(health_kit,     anteroom)),
