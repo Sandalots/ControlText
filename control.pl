@@ -1,10 +1,7 @@
-/* ============================================
-      CONTROL‑STYLE TEXT ADVENTURE
-      Single‑file Prolog implementation
+% Sandy MacDonald - 52534948 - 05/03/2026 - control.pl, main game logic for my control text adventure game adaption
 
-      Inspired by Remedy Entertainment's
-      CONTROL (2019). All story elements are
-      an original fan adaptation.
+/* ============================================
+
 
    ── ENTITIES ────────────────────────────────
       Player: jesse
@@ -144,6 +141,8 @@
           corresponding combat clauses.
    ============================================ */
 
+   
+% delcare combat related predicates used much further down the prolog source file
 :- discontiguous take_enemy_hit/1.
 :- discontiguous check_death/0.
 :- discontiguous fire_weapon/2.
@@ -155,8 +154,8 @@
 :- discontiguous enemy_turn_boss/0.
 :- discontiguous enemy_turn_infection/2.
 
-:- use_module(library(pcre)).       % re_match/2, re_replace/4
-:- use_module(library(ansi_term)).  % ansi_format/3
+:- use_module(library(pcre)).       % for cleaning up password tokens
+:- use_module(library(ansi_term)).  % for coloring the text output in the terminal
 
 /* ============================================
       INPUT HELPERS
@@ -279,28 +278,17 @@ visible_npc(E) :-
     is_hiss_enemy(E),
     has(jesse, service_weapon).
 
-/* ============================================
-      ENEMY HELPERS
-      Utility predicates shared by combat,
-      visibility, movement blocking, and the
-      map display.
-   ============================================ */
 
-%% is_hiss_enemy(+Entity)
-%  True for all named Hiss enemy types and dynamically spawned
-%  infection entities.  Infection atoms follow the pattern
-%  hiss_infection_N (e.g. hiss_infection_0, hiss_infection_1).
-%  Used by visible_npc/1, list_occupants/1, and movement guards.
+% check if a entity is a hiss enemy or not for use in combat, visibility, and map display predicates.
 is_hiss_enemy(hiss_guard).
 is_hiss_enemy(hiss_guard_b).
 is_hiss_enemy(hiss_spawn).
 is_hiss_enemy(hiss_brute).
 is_hiss_enemy(hiss_boss).
-is_hiss_enemy(E) :- atom_concat(hiss_infection_, _, E).
+is_hiss_enemy(E) :- atom_concat(hiss_infection_, _, E). % for dynamic hiss_infection random enemies
 
-%% enemy_display_name(+Entity, -Name)
-%  Human-readable name used in combat announcements and the HUD.
-%  hiss_guard and hiss_guard_b share the same display name.
+
+% display names for enemie npcs, used to announce enemies in the room and combat announcements and results.
 enemy_display_name(hiss_guard,   'Hiss Guard').
 enemy_display_name(hiss_guard_b, 'Hiss Guard').
 enemy_display_name(hiss_spawn,   'Hiss Spawn').
@@ -309,14 +297,8 @@ enemy_display_name(hiss_boss,    'Hiss Warden').
 enemy_display_name(E, 'Hiss (Infection)') :-
     atom_concat(hiss_infection_, _, E).
 
-%% living_enemy_here(+Room)
-%  Succeeds if there is at least one Hiss enemy in Room that:
-%    • is currently alive (HP > 0), AND
-%    • is visible (Jesse has the Service Weapon).
-%  There is one clause per possible named enemy, plus a general
-%  clause for dynamically spawned infection entities.
-%  Used by move/3 to block room exits during combat, and by
-%  dispatch(attack) to resolve the correct target.
+
+% helper predicate for checking if there's a live enemy in the room, used to trigger combat tips and block movement.
 living_enemy_here(Room) :-
     location(hiss_guard, Room),
     health(hiss_guard, HP), HP > 0,
@@ -348,7 +330,6 @@ living_enemy_here(Room) :-
     health(Enemy, HP), HP > 0,
     has(jesse, service_weapon).
 
-%% announce_enemies(+Room)
 %  Print a "Enemy spotted" line for each live enemy in the room.
 announce_enemies(Room) :-
     findall(EName, (
@@ -370,14 +351,7 @@ announce_enemies(Room) :-
     ; true
     ).
 
-/* ============================================
-      INITIAL STATE
-      Locations, health and stats at game start.
-      Items are listed separately below.
-      hiss_guard is spawned dynamically when
-      the Service Weapon is picked up.
-   ============================================ */
-
+% initial player status facts: location, health, weapon charge, and inventory (empty at start).
 :- assertz(location(jesse,        street)).
 :- assertz(location(ahti,         janitor_hall)).
 :- assertz(location(drenchtov,    utility_bay)).
@@ -399,12 +373,7 @@ announce_enemies(Room) :-
 
 :- assertz(outside_attempts(0)).
 
-/* ============================================
-      STATIC ITEMS
-      Initial object placement at game start.
-      Additional items can be asserted at
-      runtime (e.g. dylans_cell_key after boss).
-   ============================================ */
+% static object items, initial placement at the start of the game, and static NPC locations. Dynamic enemies like the hiss_guard are not included here since they spawn based on player actions rather than being present from the start or dynamic items such as the final boss enemy's key, which is dropped on death.
 :- assertz(object(keys,           lobby)).
 :- assertz(object(service_weapon, directors_office)).
 :- assertz(object(health_kit,     anteroom)).
@@ -691,10 +660,6 @@ note(solitary, warden_log, "A crumpled guard log: 'Subject 117 — Faden, D. —
 note(solitary, scratched_door, "Scratched into the reinforced door at the far east end, from the inside:\n'Jesse. If you somehow get here. I knew you would. —D'").
 note(dylans_cell, etched_wall, "Scratched into the concrete beside the cot, small and careful: 'I stopped counting days. But she'll come. She always does. I just have to stay me until she gets here. —D'").
 
-/* ============================================
-      NOTE PREDICATES
-   ============================================ */
-
 %% list_notes(+Room)
 %  Show IDs of all unread notes in Room on arrival.
 list_notes(Room) :-
@@ -868,25 +833,13 @@ talk_to(okoro) :-
     normal_text("A researcher in a white coat looks up from a terminal, visibly relieved to see another person."),
     speak(okoro, "'Oh thank god. I thought I was the last one in this wing.'"),
     normal_text("He gestures at the bench where the smash object sits."),
-    speak(okoro, "'Okoro. Materials Research. I've been here since the incident started \
-and I haven't left because — well, look at it.'"),
+    speak(okoro, "'Okoro. Materials Research. I've been here since the incident started\nand I haven't left because — well, look at it.'"),
     normal_text("He means the smash object. It's sitting perfectly still but seems somehow present."),
-    speak(okoro, "'It's a kinetic resonance object. Class: Breach. \
-We've been studying it for six months and the short version is: \
-it wants to go through things. Walls, specifically. \
-Sealed surfaces. Blocked passages.'"),
-    speak(okoro, "'You don't activate it. You don't aim it. \
-You just carry it. \
-Once you have it on you, certain sealed areas become navigable \
-— the object and the wall come to some kind of arrangement \
-and the path opens up.'"),
+    speak(okoro, "'It's a kinetic resonance object. Class: Breach.\nWe've been studying it for six months and the short version is:\nit wants to go through things. Walls, specifically.\nSealed surfaces. Blocked passages.'"),
+    speak(okoro, "'You don't activate it. You don't aim it.\nYou just carry it.\nOnce you have it on you, certain sealed areas become navigable\n— the object and the wall come to some kind of arrangement\nand the path opens up.'"),
     normal_text("He pulls up a schematic on the terminal."),
-    speak(okoro, "'From here, there's a chamber to the south that's been sealed since the seventies. \
-The object will get you through. \
-And there's a sub-level off the resonance lab on this floor — \
-same principle. Carry it, the way opens.'"),
-    speak(okoro, "'Take it. Carefully. \
-Don't put it down near anything structural you want to keep standing.'"),
+    speak(okoro, "'From here, there's a chamber to the south that's been sealed since the seventies.\nThe object will get you through.\nAnd there's a sub-level off the resonance lab on this floor —\nsame principle. Carry it, the way opens.'"),
+    speak(okoro, "'Take it. Carefully.\nDon't put it down near anything structural you want to keep standing.'"),
     normal_text("He sits back down at his terminal with the air of someone \
 who has done everything they can and is now waiting to see what happens.").
 
@@ -896,26 +849,15 @@ talk_to(hartwell) :-
 She doesn't look up immediately."),
     speak(hartwell, "'Don't touch it yet.'"),
     normal_text("She stands, tucks the clipboard under her arm, and faces you."),
-    speak(hartwell, "'Hartwell. Parapsychics, Object Research. I've been studying this thing \
-since it arrived in this room, which was — '"),
+    speak(hartwell, "'Hartwell. Parapsychics, Object Research. I've been studying this thing\nsince it arrived in this room, which was — '"),
     normal_text("She checks the time."),
     speak(hartwell, "'— not long, in the grand scheme of things. Long enough."),
-    speak(hartwell, "It's a resonance object. Object of Power. Class: Shielding. \
-What it does is absorb. One significant kinetic or paranatural impact — one hit — \
-then the barrier dissipates. Has to be reactivated manually each time.'"),
+    speak(hartwell, "It's a resonance object. Object of Power. Class: Shielding.\nWhat it does is absorb. One significant kinetic or paranatural impact — one hit —\nthen the barrier dissipates. Has to be reactivated manually each time.'"),
     normal_text("You look at the shield hovering above the pedestal."),
-    speak(hartwell, "'Take it. It won't hurt you — it's already decided it wants a new host. \
-I've been watching it orient toward the door every time someone walks past. \
-That's you, by the way. It's been orienting toward you.'"),
-    speak(hartwell, "'When you need it, use the shield command. \
-You'll know when. The barrier goes up, takes the next hit, then it's gone. \
-Only good for one blow at a time, so don't waste it. \
-Use it when something is about to hurt you badly.'"),
+    speak(hartwell, "'Take it. It won't hurt you — it's already decided it wants a new host.\nI've been watching it orient toward the door every time someone walks past.\nThat's you, by the way. It's been orienting toward you.'"),
+    speak(hartwell, "'When you need it, use the shield command.\nYou'll know when. The barrier goes up, takes the next hit, then it's gone.\nOnly good for one blow at a time, so don't waste it.\nUse it when something is about to hurt you badly.'"),
     normal_text("She turns back to her clipboard."),
-    speak(hartwell, "'I'd come with you but I have seventeen pages of field notes to finish \
-and the object isn't going to document itself. Good luck. \
-Try not to die."),
-    speak(hartwell, "Also — north of here is very bad. You probably already know that.'").
+    speak(hartwell, "'I'd come with you but I have seventeen pages of field notes to finish\nand the object isn't going to document itself. Good luck.\nTry not to die.\nAlso — north of here is very bad. You probably already know that.'").
 
 talk_to(drenchtov) :-
     location(jesse, utility_bay), !,
@@ -926,16 +868,10 @@ talk_to(drenchtov) :-
     speak(drenchtov, "'No, of course not. Too early.' He makes a small note."),
     speak(drenchtov, "'I've been trying to reach someone in authority for — '"),
     normal_text("He checks his watch."),
-    speak(drenchtov, "'— some time now. The Director's office is north, past the lobby, up through the building. \
-Senior staff would normally handle a situation like this but as far as I can tell \
-senior staff are either dead or making things considerably worse, so.'"),
+    speak(drenchtov, "'— some time now. The Director's office is north, past the lobby, up through the building.\nSenior staff would normally handle a situation like this but as far as I can tell\nsenior staff are either dead or making things considerably worse, so.'"),
     normal_text("He picks up his sandwich again."),
-    speak(drenchtov, "'I'd try north of the lobby. That's where the Director works. Worked. \
-I'm going to stay here and finish this form. \
-Someone has to keep the paperwork current.'"),
-    normal_text("He seems sincere. You believe him. \
-You also believe he is going to be fine, in the way that very organised people \
-are sometimes inexplicably fine.").
+    speak(drenchtov, "'I'd try north of the lobby. That's where the Director works. Worked.\nI'm going to stay here and finish this form.\nSomeone has to keep the paperwork current.'"),
+    normal_text("He seems sincere. You believe him.\nYou also believe he is going to be fine, in the way that very organised people\nare sometimes inexplicably fine.").
 
 talk_to(vendor) :-
     location(jesse, food_vendor), !,
@@ -962,27 +898,24 @@ talk_to(dylan) :-
 talk_to(_) :-
     normal_text("There's no one to talk to.").
 
-%% show_credits — end‑game credits screen, then lock input loop.
+% after talking to your missing brother, the game ends and the following credits are played, plus the txt to type to restart or quit.
 show_credits :-
     map_text(""),
     map_text("╔══════════════════════════════════════════╗"),
     map_text("║               ~ THE END                  ║"),
     map_text("╠══════════════════════════════════════════╣"),
     map_text("║                                          ║"),
-    map_text("║   CONTROL — TEXT ADVENTURE ADAPTION      ║"),
+    map_text("║   CONTROL — TEXT ADVENTURE               ║"),
     map_text("║                                          ║"),
     map_text("║   Written in Prolog, by Sandy MacDonald  ║"),
     map_text("║                                          ║"),
     map_text("║   Inspired by Remedy Entertainment's     ║"),
     map_text("║   CONTROL (2019)                         ║"),
     map_text("║                                          ║"),
-    map_text("║   Jesse found Dylan.                     ║"),
-    map_text("║   The House remains.                     ║"),
-    map_text("║   It always does.                        ║"),
-    map_text("║                                          ║"),
+    map_text("║   Jesse found her missing brother,Dylan. ║"),
     map_text("╚══════════════════════════════════════════╝"),
     map_text(""),
-    highlight_text("Type 'restart' to play again or 'quit' to exit."),
+    highlight_text("Type 'restart' to play again or 'quit' or 'exit' to exit."),
     assertz(game_over).
 
 /* ============================================
@@ -1572,8 +1505,7 @@ skip_turn :-
       Defeated infections drop a health kit.
    ============================================ */
 
-%% infectable_room(+Room)
-%  Rooms eligible for random Hiss infection.
+%  Rooms eligible for random Hiss infection, a.k.a random enemy spawns
 infectable_room(lobby).
 infectable_room(atrium).
 infectable_room(rejuvenation_room).
@@ -1761,8 +1693,7 @@ move(jesse, west, blocked) :-
 
 move(jesse, east, blocked) :-
     location(jesse, janitor_hall), \+ has(jesse, service_weapon), !,
-    speak(ahti, "'The Service Weapon... you will need it. The deeper places demand it. \
-Without it, the shadows will consume you. Go. Retrieve what was left behind.'").
+    speak(ahti, "'The Service Weapon... you will need it. The deeper places demand it.\nWithout it, the shadows will consume you. Go. Retrieve what was left behind.'").
 
 move(jesse, east, blocked) :-
     location(jesse, solitary), \+ has(jesse, dylans_cell_key), !,
@@ -1802,8 +1733,8 @@ outside_message(4) :-
 outside_message(_) :-
     normal_text("You cannot escape the Oldest House. Just go inside.").
 
-%% funny_outside_message
-%  Increment counter and show the appropriate message.
+
+% if player repeatedly tries to wander south from start, escalate the message with each attempt
 funny_outside_message :-
     outside_attempts(N),
     succ(N, N1),
@@ -2606,12 +2537,7 @@ game_loop :-
       )
     ).
 
-/* ============================================
-      PROLOGUE  —  prologue/0
-      Displays Jesse's backstory and journey
-      to the Oldest House. Sets narrative tone.
-   ============================================ */
-
+% prolog text shown when game starts, shows the backstory of the game and sets the tone. Called by start/0.
 prologue :-
     writeln(""),
     writeln(""),
@@ -2692,30 +2618,8 @@ start :-
     flush_output,
     game_loop.
 
-/* ============================================
-      RESTART  —  restart_game/0
-      Wipes all dynamic state introduced at
-      game start or accumulated during play,
-      then re-asserts the exact same initial
-      configuration as the top-level assertz
-      directives at file load time.
-      
-      Three clear phases:
-        1. retractall/1: clears every dynamic fact.
-        2. assertz/1 (locations): re-places entities.
-        3. assertz/1 (items): re-scatters items on map.
 
-      Called by:
-        dispatch(restart)       — from game loop
-        server.pl reset_game/0  — from web handler
-
-      Note: does NOT call start/0 or game_loop/0.
-      In standalone mode the game_loop continues
-      after dispatch(restart) returns.  In web
-      mode server.pl calls init_game_output/0
-      separately after reset_game/0.
-   ============================================ */
-
+% predicate to reset the game to the initial state, allowing the player to start over after death or at any time.
 restart_game :-
     % --- Clear all runtime state ---
     retractall(game_over),
