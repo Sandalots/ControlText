@@ -1,4 +1,4 @@
-(if on server hosted web-page interface click start game to begin the game)
+(if on server hosted web-page (swipl server.pl) interface click start game to begin the game, if using swipl control.pl there is no need to press any button)
 
 think brother
 think unarmed
